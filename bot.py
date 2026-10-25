@@ -1,5 +1,6 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -191,7 +192,8 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'Bot is running!')
 
 def run_server():
-    port = 8080
+    # Render يعطينا المنفذ عبر هذا المتغير، وإذا لم يوجد نستخدم 8080
+    port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
