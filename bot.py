@@ -1,5 +1,7 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ⚠️ ضع التوكن الخاص بك هنا (بدون حذف علامات التنصيص)
 TOKEN = "8635643004:AAG--rxwYJJfP3ze1fEpqRysvMcJM-O7x5M"
@@ -181,5 +183,21 @@ def handle_callbacks(call):
     elif call.data.startswith('nofile_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
+# ✅ كود فتح المنفذ الوهمي لإرضاء Render
+class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'Bot is running!')
+
+def run_server():
+    port = 8080
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+# تشغيل السيرفر الوهمي في الخلفية
+threading.Thread(target=run_server, daemon=True).start()
+
+# تشغيل البوت
 print("البوت يعمل الآن بانتظار الرسائل...")
 bot.infinity_polling()
