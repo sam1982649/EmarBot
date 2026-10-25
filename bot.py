@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 # ⚠️ ضع التوكن الخاص بك هنا (بدون حذف علامات التنصيص)
 TOKEN = "8635643004:AAG--rxwYJJfP3ze1fEpqRysvMcJM-O7x5M"
+
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start', 'main_menu'])
@@ -37,8 +38,34 @@ def send_welcome(message):
 def handle_callbacks(call):
     bot.answer_callback_query(call.id)
 
+    # ✅ دالة مساعدة لحذف الرسالة السابقة وإرسال رسالة جديدة
+    def replace_message(text, markup):
+        try:
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        except Exception:
+            pass 
+        
+        bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
+
     if call.data == 'main_menu':
-        send_welcome(call.message)
+        markup = InlineKeyboardMarkup(row_width=2)
+        buttons = [
+            InlineKeyboardButton("🎒 الصف الرابع", callback_data="grade_4"),
+            InlineKeyboardButton("🎒 الصف الخامس", callback_data="grade_5"),
+            InlineKeyboardButton("🎒 الصف السادس", callback_data="grade_6"),
+            InlineKeyboardButton("📘 الصف السابع", callback_data="grade_7"),
+            InlineKeyboardButton("📗 الصف الثامن", callback_data="grade_8"),
+            InlineKeyboardButton("📙 الصف التاسع", callback_data="grade_9"),
+            InlineKeyboardButton("🎓 الصف العاشر", callback_data="grade_10"),
+            InlineKeyboardButton("🎓 الحادي عشر", callback_data="grade_11"),
+            InlineKeyboardButton("🏆 بكالوريا", callback_data="grade_12")
+        ]
+        markup.add(*buttons) 
+        markup.add(InlineKeyboardButton("🔑 تفعيل التطبيق", callback_data="activate_info"))
+        markup.add(InlineKeyboardButton("ℹ️ معلومات حول البوت", callback_data="about_bot"))
+        
+        welcome_text = "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n📚 هذا البوت مخصص لتوفير ملفات الدراسة بضغطة زر.\n\n👇 <b>الرجاء اختيار الصف الدراسي الخاص بك:</b>"
+        replace_message(welcome_text, markup)
         
     elif call.data == 'activate_info':
         activation_text = (
@@ -55,10 +82,13 @@ def handle_callbacks(call):
         )
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu"))
-        bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=activation_text, reply_markup=markup, parse_mode='HTML')
+        replace_message(activation_text, markup)
         
     elif call.data == 'about_bot':
-        bot.send_message(call.message.chat.id, "👨‍🏫 <b>معلومات حول البوت:</b>\n\nتم تصميم هذا البوت لتسهيل وصول الطلاب إلى ملفات قناة إيمار.", parse_mode='HTML')
+        text = "👨‍🏫 <b>معلومات حول البوت:</b>\n\nتم تصميم هذا البوت لتسهيل وصول الطلاب إلى ملفات قناة إيمار."
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu"))
+        replace_message(text, markup)
         
     # ==========================================
     # 1. قائمة الصفوف
@@ -112,13 +142,8 @@ def handle_callbacks(call):
         for row in extra_markup.keyboard:
             units_markup.add(*row)
         
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر الدرس أو القسم المطلوب:</b>",
-            reply_markup=units_markup,
-            parse_mode='HTML'
-        )
+        text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر الدرس أو القسم المطلوب:</b>"
+        replace_message(text, units_markup)
 
     # ==========================================
     # 2. تمارين الدرس
@@ -141,13 +166,8 @@ def handle_callbacks(call):
         )
         markup.add(InlineKeyboardButton("🔙 العودة للدروس", callback_data=f"grade_{grade}"))
         
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"📚 <b>الصف {grade} - {lesson_name}</b>\n\n👇 <b>اختر نوع التمرين أو الملف:</b>",
-            reply_markup=markup,
-            parse_mode='HTML'
-        )
+        text = f"📚 <b>الصف {grade} - {lesson_name}</b>\n\n👇 <b>اختر نوع التمرين أو الملف:</b>"
+        replace_message(text, markup)
 
     # ==========================================
     # 3. الأقسام الإضافية
@@ -170,13 +190,8 @@ def handle_callbacks(call):
         markup = InlineKeyboardMarkup(row_width=1)
         markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
         
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=call.message.message_id,
-            text=f"📚 <b>الصف {grade} - {type_names[extra_type]}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد.",
-            reply_markup=markup,
-            parse_mode='HTML'
-        )
+        text = f"📚 <b>الصف {grade} - {type_names[extra_type]}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد."
+        replace_message(text, markup)
 
     # ==========================================
     # 4. الأزرار الفارغة
@@ -184,7 +199,7 @@ def handle_callbacks(call):
     elif call.data.startswith('nofile_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
-# ✅ كود فتح المنفذ الوهمي لإرضاء Render
+# ✅ كود فتح المنفذ الوهمي لإرضاء Render (لا تحذفه)
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -192,14 +207,13 @@ class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(b'Bot is running!')
 
 def run_server():
-    # Render يعطينا المنفذ عبر هذا المتغير، وإذا لم يوجد نستخدم 8080
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# تشغيل السيرفر الوهمي في الخلفية
 threading.Thread(target=run_server, daemon=True).start()
 
-# تشغيل البوت
 print("البوت يعمل الآن بانتظار الرسائل...")
 bot.infinity_polling()
+        
+                    
