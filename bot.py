@@ -4,7 +4,7 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان (وليس مكتوباً هنا)
+# ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان
 TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
@@ -37,14 +37,19 @@ def send_welcome(message):
 def handle_callbacks(call):
     bot.answer_callback_query(call.id)
 
-    # ✅ دالة مساعدة لحذف الرسالة السابقة وإرسال رسالة جديدة
-    def replace_message(text, markup):
+    # ✅ دالة مساعدة لتعديل الرسالة الحالية فوراً (أسرع طريقة)
+    def edit_message(text, markup):
         try:
-            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+            bot.edit_message_text(
+                chat_id=call.message.chat.id, 
+                message_id=call.message.message_id, 
+                text=text, 
+                reply_markup=markup, 
+                parse_mode='HTML'
+            )
         except Exception:
-            pass 
-        
-        bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
+            # إذا كانت الرسالة قديمة جداً ولا يمكن تعديلها، نرسل رسالة جديدة
+            bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
 
     if call.data == 'main_menu':
         markup = InlineKeyboardMarkup(row_width=2)
@@ -64,7 +69,7 @@ def handle_callbacks(call):
         markup.add(InlineKeyboardButton("ℹ️ معلومات حول البوت", callback_data="about_bot"))
         
         welcome_text = "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n📚 هذا البوت مخصص لتوفير ملفات الدراسة بضغطة زر.\n\n👇 <b>الرجاء اختيار الصف الدراسي الخاص بك:</b>"
-        replace_message(welcome_text, markup)
+        edit_message(welcome_text, markup)
         
     elif call.data == 'activate_info':
         activation_text = (
@@ -81,13 +86,13 @@ def handle_callbacks(call):
         )
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu"))
-        replace_message(activation_text, markup)
+        edit_message(activation_text, markup)
         
     elif call.data == 'about_bot':
         text = "👨‍🏫 <b>معلومات حول البوت:</b>\n\nتم تصميم هذا البوت لتسهيل وصول الطلاب إلى ملفات قناة إيمار."
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu"))
-        replace_message(text, markup)
+        edit_message(text, markup)
         
     # ==========================================
     # 1. قائمة الصفوف
@@ -142,7 +147,7 @@ def handle_callbacks(call):
             units_markup.add(*row)
         
         text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر الدرس أو القسم المطلوب:</b>"
-        replace_message(text, units_markup)
+        edit_message(text, units_markup)
 
     # ==========================================
     # 2. تمارين الدرس
@@ -166,7 +171,7 @@ def handle_callbacks(call):
         markup.add(InlineKeyboardButton("🔙 العودة للدروس", callback_data=f"grade_{grade}"))
         
         text = f"📚 <b>الصف {grade} - {lesson_name}</b>\n\n👇 <b>اختر نوع التمرين أو الملف:</b>"
-        replace_message(text, markup)
+        edit_message(text, markup)
 
     # ==========================================
     # 3. الأقسام الإضافية
@@ -190,7 +195,7 @@ def handle_callbacks(call):
         markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
         
         text = f"📚 <b>الصف {grade} - {type_names[extra_type]}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد."
-        replace_message(text, markup)
+        edit_message(text, markup)
 
     # ==========================================
     # 4. الأزرار الفارغة
