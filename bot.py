@@ -48,7 +48,6 @@ def handle_callbacks(call):
                 parse_mode='HTML'
             )
         except Exception:
-            # إذا كانت الرسالة قديمة جداً ولا يمكن تعديلها، نرسل رسالة جديدة
             bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
 
     if call.data == 'main_menu':
@@ -95,34 +94,12 @@ def handle_callbacks(call):
         edit_message(text, markup)
         
     # ==========================================
-    # 1. قائمة الصفوف
+    # 1. قائمة الصفوف (الأقسام الإضافية فقط)
     # ==========================================
     elif call.data.startswith('grade_'):
         grade_num = call.data.split('_')[1]
-        all_buttons = []
         
-        if grade_num in ['4', '5', '6']:
-            for i in range(1, 21):
-                all_buttons.append(InlineKeyboardButton(f"Unit {i}", callback_data=f"lesson_{grade_num}_{i}"))
-                if i % 5 == 0:
-                    rev_num = i // 5
-                    all_buttons.append(InlineKeyboardButton(f"📝 Revision {rev_num}", callback_data=f"lesson_{grade_num}_rev{rev_num}"))
-        elif grade_num in ['7', '8', '9']:
-            for i in range(1, 13):
-                all_buttons.append(InlineKeyboardButton(f"Unit {i}", callback_data=f"lesson_{grade_num}_{i}"))
-                if i % 6 == 0:
-                    rev_num = i // 6
-                    all_buttons.append(InlineKeyboardButton(f"📝 Revision {rev_num}", callback_data=f"lesson_{grade_num}_rev{rev_num}"))
-        else:
-            for i in range(1, 13):
-                all_buttons.append(InlineKeyboardButton(f"Unit {i}", callback_data=f"lesson_{grade_num}_{i}"))
-                if i % 4 == 0:
-                    rev_num = i // 4
-                    all_buttons.append(InlineKeyboardButton(f"📝 Revision {rev_num}", callback_data=f"lesson_{grade_num}_rev{rev_num}"))
-        
-        units_markup = InlineKeyboardMarkup(row_width=2)
-        units_markup.add(*all_buttons)
-
+        # ✅ تم حذف أزرار الوحدات، والاكتفاء بالأقسام الإضافية
         extra_markup = InlineKeyboardMarkup(row_width=2)
         
         if grade_num in ['7', '8', '9']:
@@ -142,39 +119,11 @@ def handle_callbacks(call):
         )
         extra_markup.add(InlineKeyboardButton("🔙 العودة للرئيسية", callback_data="main_menu"))
         
-        units_markup.add(InlineKeyboardButton("➖➖ أقسام إضافية ➖➖", callback_data="ignore"))
-        for row in extra_markup.keyboard:
-            units_markup.add(*row)
-        
-        text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر الدرس أو القسم المطلوب:</b>"
-        edit_message(text, units_markup)
+        text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر القسم المطلوب:</b>"
+        edit_message(text, extra_markup)
 
     # ==========================================
-    # 2. تمارين الدرس
-    # ==========================================
-    elif call.data.startswith('lesson_'):
-        parts = call.data.split('_')
-        grade = parts[1]
-        lesson = parts[2]
-        lesson_name = lesson.replace("rev", "Revision ") if "rev" in lesson else f"Unit {lesson}"
-        
-        markup = InlineKeyboardMarkup(row_width=1) 
-        
-        markup.add(
-            InlineKeyboardButton("📘 الشرح", callback_data=f"nofile_lesson_{grade}_{lesson}_1"),
-            InlineKeyboardButton("📄 النصوص", callback_data=f"nofile_lesson_{grade}_{lesson}_2"),
-            InlineKeyboardButton("🔗 توصيل", callback_data=f"nofile_lesson_{grade}_{lesson}_3"),
-            InlineKeyboardButton("❓ تحويل إلى سؤال", callback_data=f"nofile_lesson_{grade}_{lesson}_4"),
-            InlineKeyboardButton("✍️ كتابة جواب", callback_data=f"nofile_lesson_{grade}_{lesson}_5"),
-            InlineKeyboardButton("📚 المواضيع", callback_data=f"nofile_lesson_{grade}_{lesson}_6")
-        )
-        markup.add(InlineKeyboardButton("🔙 العودة للدروس", callback_data=f"grade_{grade}"))
-        
-        text = f"📚 <b>الصف {grade} - {lesson_name}</b>\n\n👇 <b>اختر نوع التمرين أو الملف:</b>"
-        edit_message(text, markup)
-
-    # ==========================================
-    # 3. الأقسام الإضافية
+    # 2. الأقسام الإضافية
     # ==========================================
     elif call.data.startswith('extra_'):
         parts = call.data.split('_')
@@ -198,9 +147,9 @@ def handle_callbacks(call):
         edit_message(text, markup)
 
     # ==========================================
-    # 4. الأزرار الفارغة
+    # 3. الأزرار الفارغة (متبقية من الكود القديم)
     # ==========================================
-    elif call.data.startswith('nofile_'):
+    elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
 # ✅ كود فتح المنفذ الوهمي لإرضاء Render (لا تحذفه)
