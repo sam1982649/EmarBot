@@ -4,9 +4,8 @@ import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-# ⚠️ ضع التوكن الخاص بك هنا (بدون حذف علامات التنصيص)
-TOKEN = "8635643004:AAG--rxwYJJfP3ze1fEpqRysvMcJM-O7x5M"
-
+# ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان (وليس مكتوباً هنا)
+TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 @bot.message_handler(commands=['start', 'main_menu'])
@@ -215,5 +214,3 @@ threading.Thread(target=run_server, daemon=True).start()
 
 print("البوت يعمل الآن بانتظار الرسائل...")
 bot.infinity_polling()
-        
-                    
