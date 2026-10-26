@@ -37,7 +37,6 @@ def send_welcome(message):
 def handle_callbacks(call):
     bot.answer_callback_query(call.id)
 
-    # ✅ دالة مساعدة لتعديل الرسالة الحالية فوراً (أسرع طريقة)
     def edit_message(text, markup):
         try:
             bot.edit_message_text(
@@ -99,7 +98,6 @@ def handle_callbacks(call):
     elif call.data.startswith('grade_'):
         grade_num = call.data.split('_')[1]
         
-        # ✅ تم حذف أزرار الوحدات، والاكتفاء بالأقسام الإضافية
         extra_markup = InlineKeyboardMarkup(row_width=2)
         
         if grade_num in ['7', '8', '9']:
@@ -109,45 +107,105 @@ def handle_callbacks(call):
         else:
             app_url = "https://t.me/EmarApp"
 
-        extra_markup.add(
-            InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
-            InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
-            InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
-            InlineKeyboardButton("🎧 استماع", callback_data=f"extra_{grade_num}_listening"),
-            InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
-            InlineKeyboardButton("📚 المواضيع", callback_data=f"extra_{grade_num}_topics")
-        )
+        # ✅ إضافة أزرار خاصة بالصف التاسع (كتاب الطالب والنشاط)
+        if grade_num == '9':
+            extra_markup.add(
+                InlineKeyboardButton("📘 الشرح", callback_data=f"explain_{grade_num}"),
+                InlineKeyboardButton("📚 المفردات", callback_data=f"vocab_{grade_num}"),
+                InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
+                InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
+                InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
+                InlineKeyboardButton("🎧 استماع - كتاب الطالب", url="https://t.me/EmarApp/121"),
+                InlineKeyboardButton("🎧 استماع - كتاب النشاط", url="https://t.me/EmarApp/122"),
+                InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
+                InlineKeyboardButton("📚 المواضيع", callback_data=f"extra_{grade_num}_topics")
+            )
+        else:
+            # باقي الصفوف تبقى كما هي
+            extra_markup.add(
+                InlineKeyboardButton("📘 الشرح", callback_data=f"explain_{grade_num}"),
+                InlineKeyboardButton("📚 المفردات", callback_data=f"vocab_{grade_num}"),
+                InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
+                InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
+                InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
+                InlineKeyboardButton("🎧 استماع", callback_data=f"extra_{grade_num}_listening"),
+                InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
+                InlineKeyboardButton("📚 المواضيع", callback_data=f"extra_{grade_num}_topics")
+            )
+        
         extra_markup.add(InlineKeyboardButton("🔙 العودة للرئيسية", callback_data="main_menu"))
         
         text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر القسم المطلوب:</b>"
         edit_message(text, extra_markup)
 
     # ==========================================
-    # 2. الأقسام الإضافية
+    # 2. الأقسام (اختبارات، شرح، الخ)
     # ==========================================
-    elif call.data.startswith('extra_'):
+    elif call.data.startswith('extra_') or call.data.startswith('explain_') or call.data.startswith('vocab_'):
+        parts = call.data.split('_')
+        action = parts[0]
+        grade = parts[1]
+        
+        if action == 'extra':
+            extra_type = parts[2]
+            if extra_type == 'tests':
+                # ✅ قائمة الاختبارات الفرعية
+                markup = InlineKeyboardMarkup(row_width=1)
+                markup.add(
+                    InlineKeyboardButton("مذاكرة فصل أول", callback_data=f"test_{grade}_study1"),
+                    InlineKeyboardButton("امتحان فصل أول", callback_data=f"test_{grade}_exam1"),
+                    InlineKeyboardButton("مذاكرة فصل ثاني", callback_data=f"test_{grade}_study2"),
+                    InlineKeyboardButton("امتحان فصل ثاني", callback_data=f"test_{grade}_exam2")
+                )
+                markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+                text = f"📝 <b>الصف {grade} - الاختبارات</b>\n\n👇 <b>اختر المطلوب:</b>"
+                edit_message(text, markup)
+                return
+            
+            type_names = {
+                "worksheets": "أوراق عمل 📄",
+                "listening": "الاستماع 🎧",
+                "guide": "الدليل 📖",
+                "topics": "المواضيع 📚"
+            }
+            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات هذا القسم بعد.", show_alert=True)
+            markup = InlineKeyboardMarkup(row_width=1)
+            markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+            text = f"📚 <b>الصف {grade} - {type_names.get(extra_type, '')}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد."
+            edit_message(text, markup)
+
+        elif action == 'explain':
+            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات الشرح بعد.", show_alert=True)
+            markup = InlineKeyboardMarkup(row_width=1)
+            markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+            text = f"📘 <b>الصف {grade} - الشرح</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات الشرح بعد."
+            edit_message(text, markup)
+
+        elif action == 'vocab':
+            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات المفردات بعد.", show_alert=True)
+            markup = InlineKeyboardMarkup(row_width=1)
+            markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+            text = f"📚 <b>الصف {grade} - المفردات</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات المفردات بعد."
+            edit_message(text, markup)
+
+    # ==========================================
+    # 3. أزرار الاختبارات الفرعية
+    # ==========================================
+    elif call.data.startswith('test_'):
         parts = call.data.split('_')
         grade = parts[1]
-        extra_type = parts[2]
+        test_type = parts[2]
         
-        type_names = {
-            "tests": "الاختبارات 📝",
-            "worksheets": "أوراق عمل 📄",
-            "listening": "الاستماع 🎧",
-            "guide": "الدليل 📖",
-            "topics": "المواضيع 📚"
-        }
-        
-        bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات هذا القسم بعد. يرجى المحاولة لاحقاً.", show_alert=True)
+        bot.answer_callback_query(call.id, "⚠️ لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
         
         markup = InlineKeyboardMarkup(row_width=1)
-        markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+        markup.add(InlineKeyboardButton("🔙 العودة للاختبارات", callback_data=f"extra_{grade}_tests"))
         
-        text = f"📚 <b>الصف {grade} - {type_names[extra_type]}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد."
+        text = f"📝 <b>الصف {grade}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع هذا الملف بعد."
         edit_message(text, markup)
 
     # ==========================================
-    # 3. الأزرار الفارغة (متبقية من الكود القديم)
+    # 4. الأزرار الفارغة (متبقية من الكود القديم)
     # ==========================================
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
