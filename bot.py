@@ -14,14 +14,13 @@ bot = telebot.TeleBot(TOKEN)
 # ✅ رابط ملف JSON المباشر (Raw Link)
 QUESTIONS_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main/grade7/lesson1/grammar.json"
 
-# متغير لحفظ الأسئلة بعد تحميلها (لتجنب تحميلها في كل مرة)
+# متغير لحفظ الأسئلة بعد تحميلها
 cached_questions = []
 
 def load_questions():
     global cached_questions
-    if cached_questions:  # إذا كانت محملة مسبقاً، نستخدمها
+    if cached_questions:
         return cached_questions
-    
     try:
         req = urllib.request.Request(QUESTIONS_URL, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response:
@@ -31,6 +30,28 @@ def load_questions():
     except Exception as e:
         print(f"Error loading questions: {e}")
         return []
+
+# دالة مساعدة لإرسال السؤال
+def send_question(chat_id, q_index):
+    questions = load_questions()
+    if q_index >= len(questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
+        return
+
+    q = questions[q_index]
+    markup = InlineKeyboardMarkup(row_width=2)
+    
+    # خلط الخيارات للعرض
+    shuffled_indices = list(range(len(q["o"])))
+    random.shuffle(shuffled_indices)
+    
+    for display_idx, original_idx in enumerate(shuffled_indices):
+        letter = chr(97 + display_idx)
+        option_text = q["o"][original_idx]
+        markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{q_index}_{original_idx}"))
+
+    text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode='HTML')
 
 @bot.message_handler(commands=['start', 'main_menu'])
 def send_welcome(message):
@@ -121,7 +142,6 @@ def handle_callbacks(call):
     # ==========================================
     elif call.data.startswith('grade_'):
         grade_num = call.data.split('_')[1]
-        
         extra_markup = InlineKeyboardMarkup(row_width=2)
         
         if grade_num in ['7', '8', '9']:
@@ -155,23 +175,20 @@ def handle_callbacks(call):
             )
         
         extra_markup.add(InlineKeyboardButton("🔙 العودة للرئيسية", callback_data="main_menu"))
-        
         text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر القسم المطلوب:</b>"
         edit_message(text, extra_markup)
 
     # ==========================================
-    # 2. قسم الاستماع للصف التاسع (قائمة فرعية)
+    # 2. قسم الاستماع للصف التاسع
     # ==========================================
     elif call.data.startswith('listen_'):
         grade = call.data.split('_')[1]
-        
         markup = InlineKeyboardMarkup(row_width=1)
         markup.add(
             InlineKeyboardButton("📘 استماع - كتاب الطالب", url="https://t.me/EmarApp/121"),
             InlineKeyboardButton("📗 استماع - كتاب النشاط", url="https://t.me/EmarApp/122")
         )
         markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-        
         text = f"🎧 <b>الصف {grade} - ملفات الاستماع</b>\n\n👇 <b>اختر الكتاب:</b>"
         edit_message(text, markup)
 
@@ -192,7 +209,6 @@ def handle_callbacks(call):
                 text = f"📝 <b>الصف {grade} - الاختبارات</b>\n\n👇 <b>اضغط لبدء الاختبار:</b>"
                 edit_message(text, markup)
                 return
-            
             type_names = {
                 "worksheets": "أوراق عمل 📄",
                 "listening": "الاستماع 🎧",
@@ -220,84 +236,57 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. منطق الاختبار التفاعلي (الخلط الآمن لكل طالب)
+    # 4. منطق الاختبار التفاعلي
     # ==========================================
     elif call.data.startswith('start_quiz_'):
         q_index = int(call.data.split('_')[2])
-        
-        questions = load_questions()
-        
-        if not questions:
-            bot.answer_callback_query(call.id, "⚠️ عذراً، لم نتمكن من تحميل الأسئلة. يرجى المحاولة لاحقاً.", show_alert=True)
-            return
-            
-        if q_index >= len(questions):
-            edit_message("🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", None)
-            return
-
-        q = questions[q_index]
-        markup = InlineKeyboardMarkup(row_width=2)
-        
-        # ✅ الخلط العشوائي للعرض فقط
-        shuffled_indices = list(range(len(q["o"])))
-        random.shuffle(shuffled_indices)
-        
-        for display_idx, original_idx in enumerate(shuffled_indices):
-            letter = chr(97 + display_idx)
-            option_text = q["o"][original_idx]
-            # نرسل رقم الخيار الأصلي في الـ callback_data لكي نتحقق منه لاحقاً
-            markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{q_index}_{original_idx}"))
-
-        text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
-        edit_message(text, markup)
+        # نقوم بحذف رسالة "ابدأ الاختبار" وإرسال السؤال الأول
+        try:
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        except Exception:
+            pass
+        send_question(call.message.chat.id, q_index)
 
     elif call.data.startswith('ans_'):
         parts = call.data.split('_')
         q_index = int(parts[1])
-        selected_original_index = int(parts[2]) # هذا هو الخيار الأصلي (0,1,2,3)
+        selected_original_index = int(parts[2])
         
         questions = load_questions()
         q = questions[q_index]
         
-        # ✅ التحقق من الإجابة
         if selected_original_index == q["c"]:
-            # إجابة صحيحة
             bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
             explanation = q.get("exp", "إجابة صحيحة!")
         else:
-            # إجابة خاطئة
             bot.answer_callback_query(call.id, "❌ إجابة خاطئة.", show_alert=True)
             correct_text = q["o"][q["c"]]
             explanation = f"❌ إجابة خاطئة.\n\n✅ الإجابة الصحيحة هي: <b>{correct_text}</b>\n\n{q.get('exp', '')}"
 
-        # ✅ في كلتا الحالتين، ننتقل للسؤال التالي
+        # ✅ حذف الرسالة السابقة
         try:
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         except Exception:
             pass
 
+        # إرسال رسالة الشرح مع زر "السؤال التالي"
         next_q_index = q_index + 1
+        markup = InlineKeyboardMarkup(row_width=1)
+        
         if next_q_index >= len(questions):
-             bot.send_message(
+            bot.send_message(
                 chat_id=call.message.chat.id, 
                 text=f"{explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
                 parse_mode='HTML'
             )
         else:
-            next_q = questions[next_q_index]
-            markup = InlineKeyboardMarkup(row_width=2)
-            
-            # ✅ خلط خيارات السؤال التالي
-            next_shuffled = list(range(len(next_q["o"])))
-            random.shuffle(next_shuffled)
-            
-            for display_idx, original_idx in enumerate(next_shuffled):
-                letter = chr(97 + display_idx)
-                option_text = next_q["o"][original_idx]
-                markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{next_q_index}_{original_idx}"))
-            
-            text = f"{explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{next_q['q']}"
-            bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
+            markup.add(InlineKeyboardButton("➡️ السؤال التالي", callback_data=f"start_quiz_{next_q_index}"))
+            bot.send_message(
+                chat_id=call.message.chat.id, 
+                text=f"{explanation}", 
+                reply_markup=markup, 
+                parse_mode='HTML'
+            )
 
     # ==========================================
     # 5. الأزرار الفارغة
