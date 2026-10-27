@@ -139,9 +139,7 @@ def handle_callbacks(call):
         welcome_text = "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n📚 هذا البوت مخصص لتوفير ملفات الدراسة بضغطة زر.\n\n👇 <b>الرجاء اختيار الصف الدراسي الخاص بك:</b>"
         edit_message(welcome_text, get_main_menu_markup())
 
-    # ✅ زر مشاركة البوت
     elif call.data == 'share_bot':
-        # هذا الكود يفتح قائمة مشاركة تلغرام
         share_url = f"https://t.me/share/url?url=https://t.me/Emar_English_bot&text=انضم إلى بوت إيمار التعليمي لتعلم اللغة الإنجليزية بسهولة!"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("📤 اضغط هنا للمشاركة", url=share_url))
