@@ -3,91 +3,33 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import os
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.request
+import json
 
 # ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان
 TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# ==========================================
-# بنك أسئلة الاختبار (من 9 إلى 23)
-# ==========================================
-quiz_questions = [
-    {
-        "q": "9. A ......... is someone who forecasts the future based on existing conditions.",
-        "options": ["a. futurologist", "b. predict", "c. aspects", "d. crops"],
-        "correct": 0
-    },
-    {
-        "q": "10. The word '.........' means very big or huge.",
-        "options": ["a. settlement", "b. rocket", "c. expedition", "d. gigantic"],
-        "correct": 3
-    },
-    {
-        "q": "11. ......... is the use of physical force to harm someone.",
-        "options": ["a. Struggle", "b. Violence", "c. Outfit", "d. Committee"],
-        "correct": 1
-    },
-    {
-        "q": "12. A ......... is a group of people chosen to make decisions.",
-        "options": ["a. committee", "b. outfit", "c. struggle", "d. violence"],
-        "correct": 0
-    },
-    {
-        "q": "13. I was ......... when my nine-months brother could walk.",
-        "options": ["a. astonished", "b. astonishment", "c. astonishing", "d. astonish"],
-        "correct": 0
-    },
-    {
-        "q": "14. It rarely ....... in the desert.",
-        "options": ["a. rain", "b. rains", "c. raining", "d. rained"],
-        "correct": 1
-    },
-    {
-        "q": "15. Mrs. Al-Hroub uses balloons, hula-hoops, toy puppets ....... explain her lessons.",
-        "options": ["a. for", "b. to", "c. in", "d. with"],
-        "correct": 1
-    },
-    {
-        "q": "16. Living on the moon will be ....... than living in a space station.",
-        "options": ["a. more comfortable", "b. comfortable", "c. most comfortable", "d. comfortabler"],
-        "correct": 0
-    },
-    {
-        "q": "17. Jane decided ....... plant a tree.",
-        "options": ["a. for", "b. on", "c. to", "d. in"],
-        "correct": 2
-    },
-    {
-        "q": "18. They ....... a new bridge nowadays.",
-        "options": ["a. build", "b. builds", "c. are building", "d. is building"],
-        "correct": 2
-    },
-    {
-        "q": "19. They ........... old people last week.",
-        "options": ["a. help", "b. helps", "c. helped", "d. helping"],
-        "correct": 2
-    },
-    {
-        "q": "20. I ..................... (study) in the library at the moment.",
-        "options": ["a. study", "b. studies", "c. am studying", "d. are studying"],
-        "correct": 2
-    },
-    {
-        "q": "21. This summer, I ....... French at a language school.",
-        "options": ["a. study", "b. am studying", "c. studies", "d. studying"],
-        "correct": 1
-    },
-    {
-        "q": "22. The man looked ....... the last £10 in his wallet.",
-        "options": ["a. on", "b. at", "c. for", "d. in"],
-        "correct": 2
-    },
-    {
-        "q": "23. People will have better education ....... technology.",
-        "options": ["a. because of", "b. although", "c. but", "d. because"],
-        "correct": 0
-    }
-]
+# ✅ رابط ملف JSON المباشر (Raw Link)
+QUESTIONS_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main/grade7/lesson1/grammar.json"
+
+# متغير لحفظ الأسئلة بعد تحميلها (لتجنب تحميلها في كل مرة)
+cached_questions = []
+
+def load_questions():
+    global cached_questions
+    if cached_questions:  # إذا كانت محملة مسبقاً، نستخدمها
+        return cached_questions
+    
+    try:
+        req = urllib.request.Request(QUESTIONS_URL, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            cached_questions = data.get("questions", [])
+            return cached_questions
+    except Exception as e:
+        print(f"Error loading questions: {e}")
+        return []
 
 @bot.message_handler(commands=['start', 'main_menu'])
 def send_welcome(message):
@@ -188,7 +130,6 @@ def handle_callbacks(call):
         else:
             app_url = "https://t.me/EmarApp"
 
-        # ✅ تعديل الصف التاسع: زر استماع واحد فقط
         if grade_num == '9':
             extra_markup.add(
                 InlineKeyboardButton("📘 الشرح", callback_data=f"explain_{grade_num}"),
@@ -196,12 +137,11 @@ def handle_callbacks(call):
                 InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
                 InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
                 InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
-                InlineKeyboardButton("🎧 استماع", callback_data=f"listen_{grade_num}"), # زر واحد
+                InlineKeyboardButton("🎧 استماع", callback_data=f"listen_{grade_num}"), 
                 InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
                 InlineKeyboardButton("📚 المواضيع", callback_data=f"extra_{grade_num}_topics")
             )
         else:
-            # باقي الصفوف تبقى كما هي
             extra_markup.add(
                 InlineKeyboardButton("📘 الشرح", callback_data=f"explain_{grade_num}"),
                 InlineKeyboardButton("📚 المفردات", callback_data=f"vocab_{grade_num}"),
@@ -245,9 +185,9 @@ def handle_callbacks(call):
         if action == 'extra':
             extra_type = parts[2]
             if extra_type == 'tests':
-                # ✅ تم ربط زر الاختبارات بالاختبار التفاعلي
+                # ✅ ربط زر الاختبارات بالأسئلة التي تأتي من GitHub
                 markup = InlineKeyboardMarkup(row_width=1)
-                markup.add(InlineKeyboardButton("🚀 ابدأ الاختبار التفاعلي", callback_data="start_quiz"))
+                markup.add(InlineKeyboardButton("🚀 ابدأ الاختبار التفاعلي", callback_data="start_quiz_0"))
                 markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
                 text = f"📝 <b>الصف {grade} - الاختبارات</b>\n\n👇 <b>اضغط لبدء الاختبار:</b>"
                 edit_message(text, markup)
@@ -280,23 +220,72 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. منطق الاختبار التفاعلي
+    # 4. منطق الاختبار التفاعلي (يقرأ من GitHub)
     # ==========================================
-    elif call.data == 'start_quiz':
-        send_quiz_question(call.message.chat.id, 0)
+    elif call.data.startswith('start_quiz_'):
+        q_index = int(call.data.split('_')[2])
+        
+        questions = load_questions() # تحميل الأسئلة من GitHub
+        
+        if not questions:
+            bot.answer_callback_query(call.id, "⚠️ عذراً، لم نتمكن من تحميل الأسئلة. يرجى المحاولة لاحقاً.", show_alert=True)
+            return
+            
+        if q_index >= len(questions):
+            bot.edit_message_text(
+                chat_id=call.message.chat.id, 
+                message_id=call.message.message_id, 
+                text="🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", 
+                parse_mode='HTML'
+            )
+            return
+
+        q = questions[q_index]
+        markup = InlineKeyboardMarkup(row_width=2)
+        
+        # إنشاء أزرار الخيارات بناءً على الملف
+        for i, option in enumerate(q["o"]):
+            # نستخدم الحرف المقابل للخيار (a, b, c, d)
+            letter = chr(97 + i)
+            markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{q_index}_{i}"))
+
+        # عرض السؤال (نستخدم q['q'] للنص)
+        text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
+        edit_message(text, markup)
 
     elif call.data.startswith('ans_'):
         parts = call.data.split('_')
         q_index = int(parts[1])
         selected = int(parts[2])
         
-        q = quiz_questions[q_index]
+        questions = load_questions()
+        q = questions[q_index]
         
-        if selected == q["correct"]:
-            bot.answer_callback_query(call.id, "✅ إجابة صحيحة! أحسنت.", show_alert=True)
-            # ننتقل للسؤال التالي
-            send_quiz_question(call.message.chat.id, q_index + 1)
+        # التحقق من الإجابة الصحيحة (c في الملف)
+        if selected == q["c"]:
+            # الإجابة صحيحة، نظهر الشرح وننتقل للسؤال التالي
+            explanation = q.get("exp", "إجابة صحيحة!")
+            bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
+            
+            # الانتقال للسؤال التالي
+            next_q_index = q_index + 1
+            if next_q_index >= len(questions):
+                 bot.edit_message_text(
+                    chat_id=call.message.chat.id, 
+                    message_id=call.message.message_id, 
+                    text=f"✅ {explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
+                    parse_mode='HTML'
+                )
+            else:
+                markup = InlineKeyboardMarkup(row_width=2)
+                for i, option in enumerate(questions[next_q_index]["o"]):
+                    letter = chr(97 + i)
+                    markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{next_q_index}_{i}"))
+                
+                text = f"✅ {explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{questions[next_q_index]['q']}"
+                edit_message(text, markup)
         else:
+            # إجابة خاطئة
             bot.answer_callback_query(call.id, "❌ إجابة خاطئة. حاول مرة أخرى.", show_alert=True)
 
     # ==========================================
@@ -304,21 +293,6 @@ def handle_callbacks(call):
     # ==========================================
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
-
-# ✅ دالة إرسال السؤال
-def send_quiz_question(chat_id, q_index):
-    if q_index >= len(quiz_questions):
-        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", parse_mode='HTML')
-        return
-
-    q = quiz_questions[q_index]
-    markup = InlineKeyboardMarkup(row_width=2)
-    
-    # إنشاء أزرار الخيارات
-    for i, option in enumerate(q["options"]):
-        markup.add(InlineKeyboardButton(option, callback_data=f"ans_{q_index}_{i}"))
-
-    bot.send_message(chat_id, f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}", reply_markup=markup, parse_mode='HTML')
 
 # ==========================================
 # 6. الرد التلقائي على استفسارات الطلاب
