@@ -23,8 +23,7 @@ cached_convert = []
 
 # قاموس لحفظ أسئلة الاختبار لكل طالب
 user_quiz_sessions = {}
-
-# قاموس لحفظ حالة "التحويل" لكل طالب (رقم السؤال الحالي)
+# قاموس لحفظ حالة "التحويل" لكل طالب
 user_convert_sessions = {}
 
 def load_json_data(url, cache_var_name):
@@ -42,67 +41,13 @@ def load_json_data(url, cache_var_name):
         print(f"Error loading {url}: {e}")
         return []
 
-# دالة تنظيف النص للتصحيح الذكي
 def clean_text(text):
-    # تحويل إلى أحرف صغيرة
     text = text.lower()
-    # إزالة علامات الترقيم (.,?!) والمسافات الزائدة
     text = text.translate(str.maketrans('', '', string.punctuation))
-    # إزالة المسافات المتعددة
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
-# دالة إرسال سؤال الاختبار (MCQ)
-def send_quiz_question(chat_id, q_index):
-    if chat_id not in user_quiz_sessions:
-        bot.send_message(chat_id, "⚠️ انتهت جلسة الاختبار. يرجى البدء من جديد.")
-        return
-
-    user_questions = user_quiz_sessions[chat_id]
-    
-    if q_index >= len(user_questions):
-        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
-        del user_quiz_sessions[chat_id]
-        return
-
-    q = user_questions[q_index]
-    markup = InlineKeyboardMarkup(row_width=2)
-    
-    shuffled_indices = list(range(len(q["o"])))
-    random.shuffle(shuffled_indices)
-    
-    for display_idx, original_idx in enumerate(shuffled_indices):
-        letter = chr(97 + display_idx)
-        option_text = q["o"][original_idx]
-        markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{q_index}_{original_idx}"))
-
-    text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
-    bot.send_message(chat_id, text, reply_markup=markup, parse_mode='HTML')
-
-# دالة إرسال سؤال التحويل (كتابة حرة)
-def send_convert_question(chat_id, q_index):
-    questions = load_json_data(CONVERT_URL, 'cached_convert')
-    if q_index >= len(questions):
-        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع أسئلة التحويل.</b>", parse_mode='HTML')
-        if chat_id in user_convert_sessions:
-            del user_convert_sessions[chat_id]
-        return
-
-    # حفظ رقم السؤال الحالي في جلسة الطالب
-    user_convert_sessions[chat_id] = q_index
-    
-    q = questions[q_index]
-    
-    text = (
-        f"✍️ <b>سؤال التحويل {q_index + 1}:</b>\n\n"
-        f"<b>الجملة:</b> {q['original']}\n"
-        f"<b>الكلمة المستهدفة:</b> <u>{q['targetWord']}</u>\n\n"
-        f"<i>اكتب السؤال المناسب في المحادثة الآن:</i>"
-    )
-    bot.send_message(chat_id, text, parse_mode='HTML')
-
-@bot.message_handler(commands=['start', 'main_menu'])
-def send_welcome(message):
+def get_main_menu_markup():
     markup = InlineKeyboardMarkup(row_width=2)
     buttons = [
         InlineKeyboardButton("🎒 الصف الرابع", callback_data="grade_4"),
@@ -117,14 +62,62 @@ def send_welcome(message):
     ]
     markup.add(*buttons) 
     markup.add(InlineKeyboardButton("🔑 تفعيل التطبيق", callback_data="activate_info"))
+    markup.add(InlineKeyboardButton("📤 شارك البوت مع أصدقائك", callback_data="share_bot"))
     markup.add(InlineKeyboardButton("ℹ️ معلومات حول البوت", callback_data="about_bot"))
+    return markup
 
+def send_quiz_question(chat_id, q_index):
+    if chat_id not in user_quiz_sessions:
+        bot.send_message(chat_id, "⚠️ انتهت جلسة الاختبار. يرجى البدء من جديد.")
+        return
+
+    user_questions = user_quiz_sessions[chat_id]
+    
+    if q_index >= len(user_questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
+        del user_quiz_sessions[chat_id]
+        return
+
+    q = user_questions[q_index]
+    markup = InlineKeyboardMarkup(row_width=2)
+    shuffled_indices = list(range(len(q["o"])))
+    random.shuffle(shuffled_indices)
+    
+    for display_idx, original_idx in enumerate(shuffled_indices):
+        letter = chr(97 + display_idx)
+        option_text = q["o"][original_idx]
+        markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{q_index}_{original_idx}"))
+
+    text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
+    bot.send_message(chat_id, text, reply_markup=markup, parse_mode='HTML')
+
+def send_convert_question(chat_id, q_index):
+    questions = load_json_data(CONVERT_URL, 'cached_convert')
+    if q_index >= len(questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع أسئلة التحويل.</b>", parse_mode='HTML')
+        if chat_id in user_convert_sessions:
+            del user_convert_sessions[chat_id]
+        return
+
+    user_convert_sessions[chat_id] = q_index
+    q = questions[q_index]
+    
+    text = (
+        f"✍️ <b>سؤال التحويل {q_index + 1}:</b>\n\n"
+        f"<b>الجملة:</b> {q['original']}\n"
+        f"<b>الكلمة المستهدفة:</b> <u>{q['targetWord']}</u>\n\n"
+        f"<i>اكتب السؤال المناسب في المحادثة الآن:</i>"
+    )
+    bot.send_message(chat_id, text, parse_mode='HTML')
+
+@bot.message_handler(commands=['start', 'main_menu'])
+def send_welcome(message):
     welcome_text = (
         "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n"
         "📚 هذا البوت مخصص لتوفير ملفات الدراسة بضغطة زر.\n\n"
         "👇 <b>الرجاء اختيار الصف الدراسي الخاص بك:</b>"
     )
-    bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='HTML')
+    bot.send_message(message.chat.id, welcome_text, reply_markup=get_main_menu_markup(), parse_mode='HTML')
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callbacks(call):
@@ -143,24 +136,19 @@ def handle_callbacks(call):
             bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
 
     if call.data == 'main_menu':
-        markup = InlineKeyboardMarkup(row_width=2)
-        buttons = [
-            InlineKeyboardButton("🎒 الصف الرابع", callback_data="grade_4"),
-            InlineKeyboardButton("🎒 الصف الخامس", callback_data="grade_5"),
-            InlineKeyboardButton("🎒 الصف السادس", callback_data="grade_6"),
-            InlineKeyboardButton("📘 الصف السابع", callback_data="grade_7"),
-            InlineKeyboardButton("📗 الصف الثامن", callback_data="grade_8"),
-            InlineKeyboardButton("📙 الصف التاسع", callback_data="grade_9"),
-            InlineKeyboardButton("🎓 الصف العاشر", callback_data="grade_10"),
-            InlineKeyboardButton("🎓 الحادي عشر", callback_data="grade_11"),
-            InlineKeyboardButton("🏆 بكالوريا", callback_data="grade_12")
-        ]
-        markup.add(*buttons) 
-        markup.add(InlineKeyboardButton("🔑 تفعيل التطبيق", callback_data="activate_info"))
-        markup.add(InlineKeyboardButton("ℹ️ معلومات حول البوت", callback_data="about_bot"))
-        
         welcome_text = "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n📚 هذا البوت مخصص لتوفير ملفات الدراسة بضغطة زر.\n\n👇 <b>الرجاء اختيار الصف الدراسي الخاص بك:</b>"
-        edit_message(welcome_text, markup)
+        edit_message(welcome_text, get_main_menu_markup())
+
+    # ✅ زر مشاركة البوت
+    elif call.data == 'share_bot':
+        # هذا الكود يفتح قائمة مشاركة تلغرام
+        share_url = f"https://t.me/share/url?url=https://t.me/Emar_English_bot&text=انضم إلى بوت إيمار التعليمي لتعلم اللغة الإنجليزية بسهولة!"
+        markup = InlineKeyboardMarkup()
+        markup.add(InlineKeyboardButton("📤 اضغط هنا للمشاركة", url=share_url))
+        markup.add(InlineKeyboardButton("🔙 العودة", callback_data="main_menu"))
+        
+        text = "📤 <b>شارك البوت مع أصدقائك!</b>\n\nاضغط على الزر أدناه لاختيار أصدقائك ومشاركة البوت معهم."
+        edit_message(text, markup)
         
     elif call.data == 'activate_info':
         activation_text = (
@@ -185,9 +173,6 @@ def handle_callbacks(call):
         markup.add(InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu"))
         edit_message(text, markup)
         
-    # ==========================================
-    # 1. قائمة الصفوف
-    # ==========================================
     elif call.data.startswith('grade_'):
         grade_num = call.data.split('_')[1]
         extra_markup = InlineKeyboardMarkup(row_width=2)
@@ -228,9 +213,6 @@ def handle_callbacks(call):
         text = f"🎓 لقد اخترت <b>الصف {grade_num}</b>.\n\n👇 <b>اختر القسم المطلوب:</b>"
         edit_message(text, extra_markup)
 
-    # ==========================================
-    # 2. قسم الاستماع
-    # ==========================================
     elif call.data.startswith('listen_'):
         grade = call.data.split('_')[1]
         markup = InlineKeyboardMarkup(row_width=1)
@@ -242,9 +224,6 @@ def handle_callbacks(call):
         text = f"🎧 <b>الصف {grade} - ملفات الاستماع</b>\n\n👇 <b>اختر الكتاب:</b>"
         edit_message(text, markup)
 
-    # ==========================================
-    # 3. الأقسام
-    # ==========================================
     elif call.data.startswith('extra_') or call.data.startswith('explain_') or call.data.startswith('vocab_'):
         parts = call.data.split('_')
         action = parts[0]
@@ -265,29 +244,26 @@ def handle_callbacks(call):
                 "guide": "الدليل 📖",
                 "topics": "المواضيع 📚"
             }
-            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات هذا القسم بعد.", show_alert=True)
+            bot.answer_callback_query(call.id, "⚠️ هذا القسم قيد التطوير.", show_alert=True)
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-            text = f"📚 <b>الصف {grade} - {type_names.get(extra_type, '')}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات هذا القسم بعد."
+            text = f"📚 <b>الصف {grade} - {type_names.get(extra_type, '')}</b>\n\n🚧 <b>ملاحظة:</b> هذا القسم قيد التطوير، سيتم إضافته قريباً."
             edit_message(text, markup)
 
         elif action == 'explain':
-            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات الشرح بعد.", show_alert=True)
+            bot.answer_callback_query(call.id, "⚠️ هذا القسم قيد التطوير.", show_alert=True)
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-            text = f"📘 <b>الصف {grade} - الشرح</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات الشرح بعد."
+            text = f"📘 <b>الصف {grade} - الشرح</b>\n\n🚧 <b>ملاحظة:</b> هذا القسم قيد التطوير، سيتم إضافته قريباً."
             edit_message(text, markup)
 
         elif action == 'vocab':
-            bot.answer_callback_query(call.id, "⚠️ لم يتم رفع ملفات المفردات بعد.", show_alert=True)
+            bot.answer_callback_query(call.id, "⚠️ هذا القسم قيد التطوير.", show_alert=True)
             markup = InlineKeyboardMarkup(row_width=1)
             markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-            text = f"📚 <b>الصف {grade} - المفردات</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع ملفات المفردات بعد."
+            text = f"📚 <b>الصف {grade} - المفردات</b>\n\n🚧 <b>ملاحظة:</b> هذا القسم قيد التطوير، سيتم إضافته قريباً."
             edit_message(text, markup)
 
-    # ==========================================
-    # 4. قسم التحويل (Convert)
-    # ==========================================
     elif call.data.startswith('convert_'):
         grade = call.data.split('_')[1]
         try:
@@ -296,9 +272,6 @@ def handle_callbacks(call):
             pass
         send_convert_question(call.message.chat.id, 0)
 
-    # ==========================================
-    # 5. منطق الاختبار التفاعلي (MCQ)
-    # ==========================================
     elif call.data.startswith('start_quiz_'):
         q_index = int(call.data.split('_')[2])
         
@@ -316,7 +289,6 @@ def handle_callbacks(call):
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         except Exception:
             pass
-            
         send_quiz_question(call.message.chat.id, q_index)
 
     elif call.data.startswith('ans_'):
@@ -348,29 +320,14 @@ def handle_callbacks(call):
         markup = InlineKeyboardMarkup(row_width=1)
         
         if next_q_index >= len(user_questions):
-            bot.send_message(
-                chat_id=call.message.chat.id, 
-                text=f"{explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
-                parse_mode='HTML'
-            )
+            bot.send_message(chat_id=call.message.chat.id, text=f"{explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
         else:
             markup.add(InlineKeyboardButton("➡️ السؤال التالي", callback_data=f"start_quiz_{next_q_index}"))
-            bot.send_message(
-                chat_id=call.message.chat.id, 
-                text=f"{explanation}", 
-                reply_markup=markup, 
-                parse_mode='HTML'
-            )
+            bot.send_message(chat_id=call.message.chat.id, text=f"{explanation}", reply_markup=markup, parse_mode='HTML')
 
-    # ==========================================
-    # 6. الأزرار الفارغة
-    # ==========================================
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
-# ==========================================
-# 7. استلام إجابات التحويل من الطالب
-# ==========================================
 @bot.message_handler(func=lambda message: message.chat.id in user_convert_sessions)
 def handle_convert_answer(message):
     chat_id = message.chat.id
@@ -382,7 +339,6 @@ def handle_convert_answer(message):
     user_answer = message.text
     cleaned_user_answer = clean_text(user_answer)
     
-    # استخراج الإجابات الصحيحة من الملف
     correct_answers = []
     if "correctQuestion" in q:
         correct_answers.append(clean_text(q["correctQuestion"]))
@@ -390,27 +346,23 @@ def handle_convert_answer(message):
         for ans in q["correctQuestions"]:
             correct_answers.append(clean_text(ans))
             
-    # التحقق من الإجابة
     is_correct = False
     for correct in correct_answers:
         if cleaned_user_answer == correct:
             is_correct = True
             break
             
-    # حذف رسالة الطالب (لتنظيف المحادثة)
     try:
         bot.delete_message(chat_id=chat_id, message_id=message.message_id)
     except Exception:
         pass
 
-    # إظهار النتيجة
     if is_correct:
         bot.send_message(chat_id, "✅ <b>إجابة صحيحة! أحسنت.</b>", parse_mode='HTML')
     else:
         correct_text = q.get("correctQuestion", "")
         bot.send_message(chat_id, f"❌ <b>إجابة غير صحيحة.</b>\n\n✅ <b>الإجابة الصحيحة:</b>\n{correct_text}", parse_mode='HTML')
 
-    # الانتقال للسؤال التالي
     next_q_index = q_index + 1
     if next_q_index < len(questions):
         send_convert_question(chat_id, next_q_index)
@@ -418,9 +370,6 @@ def handle_convert_answer(message):
         bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع أسئلة التحويل.</b>", parse_mode='HTML')
         del user_convert_sessions[chat_id]
 
-# ==========================================
-# 8. الرد التلقائي
-# ==========================================
 @bot.message_handler(func=lambda message: True)
 def auto_reply(message):
     text = message.text.lower()
