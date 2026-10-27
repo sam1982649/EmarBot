@@ -6,42 +6,68 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.request
 import json
 import random
+import re
+import string
 
 # ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان
 TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# ✅ رابط ملف JSON المباشر (Raw Link)
-QUESTIONS_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main/grade7/lesson1/grammar.json"
+# ✅ روابط ملفات JSON المباشرة (Raw Links)
+GRAMMAR_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main/grade7/lesson1/grammar.json"
+CONVERT_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main/grade7/lesson1/convert_data.json"
 
-# متغير لحفظ الأسئلة بعد تحميلها
-cached_questions = []
+# متغيرات لحفظ البيانات بعد تحميلها
+cached_grammar = []
+cached_convert = []
 
-def load_questions():
-    global cached_questions
-    if cached_questions:
-        return cached_questions
+# قاموس لحفظ أسئلة الاختبار لكل طالب
+user_quiz_sessions = {}
+
+# قاموس لحفظ حالة "التحويل" لكل طالب (رقم السؤال الحالي)
+user_convert_sessions = {}
+
+def load_json_data(url, cache_var_name):
+    global_vars = globals()
+    if global_vars[cache_var_name]:
+        return global_vars[cache_var_name]
+    
     try:
-        req = urllib.request.Request(QUESTIONS_URL, headers={'User-Agent': 'Mozilla/5.0'})
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req) as response:
             data = json.loads(response.read().decode('utf-8'))
-            cached_questions = data.get("questions", [])
-            return cached_questions
+            global_vars[cache_var_name] = data.get("questions", [])
+            return global_vars[cache_var_name]
     except Exception as e:
-        print(f"Error loading questions: {e}")
+        print(f"Error loading {url}: {e}")
         return []
 
-# دالة مساعدة لإرسال السؤال
-def send_question(chat_id, q_index):
-    questions = load_questions()
-    if q_index >= len(questions):
-        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
+# دالة تنظيف النص للتصحيح الذكي
+def clean_text(text):
+    # تحويل إلى أحرف صغيرة
+    text = text.lower()
+    # إزالة علامات الترقيم (.,?!) والمسافات الزائدة
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    # إزالة المسافات المتعددة
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+# دالة إرسال سؤال الاختبار (MCQ)
+def send_quiz_question(chat_id, q_index):
+    if chat_id not in user_quiz_sessions:
+        bot.send_message(chat_id, "⚠️ انتهت جلسة الاختبار. يرجى البدء من جديد.")
         return
 
-    q = questions[q_index]
+    user_questions = user_quiz_sessions[chat_id]
+    
+    if q_index >= len(user_questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", parse_mode='HTML')
+        del user_quiz_sessions[chat_id]
+        return
+
+    q = user_questions[q_index]
     markup = InlineKeyboardMarkup(row_width=2)
     
-    # خلط الخيارات للعرض
     shuffled_indices = list(range(len(q["o"])))
     random.shuffle(shuffled_indices)
     
@@ -52,6 +78,28 @@ def send_question(chat_id, q_index):
 
     text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode='HTML')
+
+# دالة إرسال سؤال التحويل (كتابة حرة)
+def send_convert_question(chat_id, q_index):
+    questions = load_json_data(CONVERT_URL, 'cached_convert')
+    if q_index >= len(questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع أسئلة التحويل.</b>", parse_mode='HTML')
+        if chat_id in user_convert_sessions:
+            del user_convert_sessions[chat_id]
+        return
+
+    # حفظ رقم السؤال الحالي في جلسة الطالب
+    user_convert_sessions[chat_id] = q_index
+    
+    q = questions[q_index]
+    
+    text = (
+        f"✍️ <b>سؤال التحويل {q_index + 1}:</b>\n\n"
+        f"<b>الجملة:</b> {q['original']}\n"
+        f"<b>الكلمة المستهدفة:</b> <u>{q['targetWord']}</u>\n\n"
+        f"<i>اكتب السؤال المناسب في المحادثة الآن:</i>"
+    )
+    bot.send_message(chat_id, text, parse_mode='HTML')
 
 @bot.message_handler(commands=['start', 'main_menu'])
 def send_welcome(message):
@@ -138,7 +186,7 @@ def handle_callbacks(call):
         edit_message(text, markup)
         
     # ==========================================
-    # 1. قائمة الصفوف (الأقسام الإضافية فقط)
+    # 1. قائمة الصفوف
     # ==========================================
     elif call.data.startswith('grade_'):
         grade_num = call.data.split('_')[1]
@@ -157,6 +205,7 @@ def handle_callbacks(call):
                 InlineKeyboardButton("📚 المفردات", callback_data=f"vocab_{grade_num}"),
                 InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
                 InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
+                InlineKeyboardButton("✍️ تحويل إلى سؤال", callback_data=f"convert_{grade_num}"),
                 InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
                 InlineKeyboardButton("🎧 استماع", callback_data=f"listen_{grade_num}"), 
                 InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
@@ -168,6 +217,7 @@ def handle_callbacks(call):
                 InlineKeyboardButton("📚 المفردات", callback_data=f"vocab_{grade_num}"),
                 InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
                 InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
+                InlineKeyboardButton("✍️ تحويل إلى سؤال", callback_data=f"convert_{grade_num}"),
                 InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
                 InlineKeyboardButton("🎧 استماع", callback_data=f"extra_{grade_num}_listening"),
                 InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
@@ -179,7 +229,7 @@ def handle_callbacks(call):
         edit_message(text, extra_markup)
 
     # ==========================================
-    # 2. قسم الاستماع للصف التاسع
+    # 2. قسم الاستماع
     # ==========================================
     elif call.data.startswith('listen_'):
         grade = call.data.split('_')[1]
@@ -193,7 +243,7 @@ def handle_callbacks(call):
         edit_message(text, markup)
 
     # ==========================================
-    # 3. الأقسام (اختبارات، شرح، الخ)
+    # 3. الأقسام
     # ==========================================
     elif call.data.startswith('extra_') or call.data.startswith('explain_') or call.data.startswith('vocab_'):
         parts = call.data.split('_')
@@ -236,24 +286,50 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. منطق الاختبار التفاعلي
+    # 4. قسم التحويل (Convert)
     # ==========================================
-    elif call.data.startswith('start_quiz_'):
-        q_index = int(call.data.split('_')[2])
-        # نقوم بحذف رسالة "ابدأ الاختبار" وإرسال السؤال الأول
+    elif call.data.startswith('convert_'):
+        grade = call.data.split('_')[1]
         try:
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         except Exception:
             pass
-        send_question(call.message.chat.id, q_index)
+        send_convert_question(call.message.chat.id, 0)
+
+    # ==========================================
+    # 5. منطق الاختبار التفاعلي (MCQ)
+    # ==========================================
+    elif call.data.startswith('start_quiz_'):
+        q_index = int(call.data.split('_')[2])
+        
+        if q_index == 0:
+            all_questions = load_json_data(GRAMMAR_URL, 'cached_grammar')
+            if not all_questions:
+                bot.answer_callback_query(call.id, "⚠️ عذراً، لم نتمكن من تحميل الأسئلة. يرجى المحاولة لاحقاً.", show_alert=True)
+                return
+            
+            num_questions = min(10, len(all_questions))
+            selected_questions = random.sample(all_questions, num_questions)
+            user_quiz_sessions[call.message.chat.id] = selected_questions
+
+        try:
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        except Exception:
+            pass
+            
+        send_quiz_question(call.message.chat.id, q_index)
 
     elif call.data.startswith('ans_'):
         parts = call.data.split('_')
         q_index = int(parts[1])
         selected_original_index = int(parts[2])
         
-        questions = load_questions()
-        q = questions[q_index]
+        if call.message.chat.id not in user_quiz_sessions:
+            bot.answer_callback_query(call.id, "⚠️ انتهت الجلسة. ابدأ من جديد.", show_alert=True)
+            return
+
+        user_questions = user_quiz_sessions[call.message.chat.id]
+        q = user_questions[q_index]
         
         if selected_original_index == q["c"]:
             bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
@@ -263,17 +339,15 @@ def handle_callbacks(call):
             correct_text = q["o"][q["c"]]
             explanation = f"❌ إجابة خاطئة.\n\n✅ الإجابة الصحيحة هي: <b>{correct_text}</b>\n\n{q.get('exp', '')}"
 
-        # ✅ حذف الرسالة السابقة
         try:
             bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
         except Exception:
             pass
 
-        # إرسال رسالة الشرح مع زر "السؤال التالي"
         next_q_index = q_index + 1
         markup = InlineKeyboardMarkup(row_width=1)
         
-        if next_q_index >= len(questions):
+        if next_q_index >= len(user_questions):
             bot.send_message(
                 chat_id=call.message.chat.id, 
                 text=f"{explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
@@ -289,13 +363,63 @@ def handle_callbacks(call):
             )
 
     # ==========================================
-    # 5. الأزرار الفارغة
+    # 6. الأزرار الفارغة
     # ==========================================
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
 # ==========================================
-# 6. الرد التلقائي على استفسارات الطلاب
+# 7. استلام إجابات التحويل من الطالب
+# ==========================================
+@bot.message_handler(func=lambda message: message.chat.id in user_convert_sessions)
+def handle_convert_answer(message):
+    chat_id = message.chat.id
+    q_index = user_convert_sessions[chat_id]
+    
+    questions = load_json_data(CONVERT_URL, 'cached_convert')
+    q = questions[q_index]
+    
+    user_answer = message.text
+    cleaned_user_answer = clean_text(user_answer)
+    
+    # استخراج الإجابات الصحيحة من الملف
+    correct_answers = []
+    if "correctQuestion" in q:
+        correct_answers.append(clean_text(q["correctQuestion"]))
+    if "correctQuestions" in q:
+        for ans in q["correctQuestions"]:
+            correct_answers.append(clean_text(ans))
+            
+    # التحقق من الإجابة
+    is_correct = False
+    for correct in correct_answers:
+        if cleaned_user_answer == correct:
+            is_correct = True
+            break
+            
+    # حذف رسالة الطالب (لتنظيف المحادثة)
+    try:
+        bot.delete_message(chat_id=chat_id, message_id=message.message_id)
+    except Exception:
+        pass
+
+    # إظهار النتيجة
+    if is_correct:
+        bot.send_message(chat_id, "✅ <b>إجابة صحيحة! أحسنت.</b>", parse_mode='HTML')
+    else:
+        correct_text = q.get("correctQuestion", "")
+        bot.send_message(chat_id, f"❌ <b>إجابة غير صحيحة.</b>\n\n✅ <b>الإجابة الصحيحة:</b>\n{correct_text}", parse_mode='HTML')
+
+    # الانتقال للسؤال التالي
+    next_q_index = q_index + 1
+    if next_q_index < len(questions):
+        send_convert_question(chat_id, next_q_index)
+    else:
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت جميع أسئلة التحويل.</b>", parse_mode='HTML')
+        del user_convert_sessions[chat_id]
+
+# ==========================================
+# 8. الرد التلقائي
 # ==========================================
 @bot.message_handler(func=lambda message: True)
 def auto_reply(message):
