@@ -259,40 +259,45 @@ def handle_callbacks(call):
         questions = load_questions()
         q = questions[q_index]
         
-        # ✅ التحقق مباشرة من الإجابة الأصلية (بدون خلط هنا)
+        # ✅ التحقق من الإجابة
         if selected_original_index == q["c"]:
-            explanation = q.get("exp", "إجابة صحيحة!")
+            # إجابة صحيحة
             bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
-            
-            try:
-                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
-            except Exception:
-                pass
-
-            next_q_index = q_index + 1
-            if next_q_index >= len(questions):
-                 bot.send_message(
-                    chat_id=call.message.chat.id, 
-                    text=f"✅ {explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
-                    parse_mode='HTML'
-                )
-            else:
-                next_q = questions[next_q_index]
-                markup = InlineKeyboardMarkup(row_width=2)
-                
-                # ✅ خلط خيارات السؤال التالي
-                next_shuffled = list(range(len(next_q["o"])))
-                random.shuffle(next_shuffled)
-                
-                for display_idx, original_idx in enumerate(next_shuffled):
-                    letter = chr(97 + display_idx)
-                    option_text = next_q["o"][original_idx]
-                    markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{next_q_index}_{original_idx}"))
-                
-                text = f"✅ {explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{next_q['q']}"
-                bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
+            explanation = q.get("exp", "إجابة صحيحة!")
         else:
-            bot.answer_callback_query(call.id, "❌ إجابة خاطئة. حاول مرة أخرى.", show_alert=True)
+            # إجابة خاطئة
+            bot.answer_callback_query(call.id, "❌ إجابة خاطئة.", show_alert=True)
+            correct_text = q["o"][q["c"]]
+            explanation = f"❌ إجابة خاطئة.\n\n✅ الإجابة الصحيحة هي: <b>{correct_text}</b>\n\n{q.get('exp', '')}"
+
+        # ✅ في كلتا الحالتين، ننتقل للسؤال التالي
+        try:
+            bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+        except Exception:
+            pass
+
+        next_q_index = q_index + 1
+        if next_q_index >= len(questions):
+             bot.send_message(
+                chat_id=call.message.chat.id, 
+                text=f"{explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
+                parse_mode='HTML'
+            )
+        else:
+            next_q = questions[next_q_index]
+            markup = InlineKeyboardMarkup(row_width=2)
+            
+            # ✅ خلط خيارات السؤال التالي
+            next_shuffled = list(range(len(next_q["o"])))
+            random.shuffle(next_shuffled)
+            
+            for display_idx, original_idx in enumerate(next_shuffled):
+                letter = chr(97 + display_idx)
+                option_text = next_q["o"][original_idx]
+                markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{next_q_index}_{original_idx}"))
+            
+            text = f"{explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{next_q['q']}"
+            bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
 
     # ==========================================
     # 5. الأزرار الفارغة
