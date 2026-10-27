@@ -8,6 +8,87 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
+# ==========================================
+# بنك أسئلة الاختبار (من 9 إلى 23)
+# ==========================================
+quiz_questions = [
+    {
+        "q": "9. A ......... is someone who forecasts the future based on existing conditions.",
+        "options": ["a. futurologist", "b. predict", "c. aspects", "d. crops"],
+        "correct": 0
+    },
+    {
+        "q": "10. The word '.........' means very big or huge.",
+        "options": ["a. settlement", "b. rocket", "c. expedition", "d. gigantic"],
+        "correct": 3
+    },
+    {
+        "q": "11. ......... is the use of physical force to harm someone.",
+        "options": ["a. Struggle", "b. Violence", "c. Outfit", "d. Committee"],
+        "correct": 1
+    },
+    {
+        "q": "12. A ......... is a group of people chosen to make decisions.",
+        "options": ["a. committee", "b. outfit", "c. struggle", "d. violence"],
+        "correct": 0
+    },
+    {
+        "q": "13. I was ......... when my nine-months brother could walk.",
+        "options": ["a. astonished", "b. astonishment", "c. astonishing", "d. astonish"],
+        "correct": 0
+    },
+    {
+        "q": "14. It rarely ....... in the desert.",
+        "options": ["a. rain", "b. rains", "c. raining", "d. rained"],
+        "correct": 1
+    },
+    {
+        "q": "15. Mrs. Al-Hroub uses balloons, hula-hoops, toy puppets ....... explain her lessons.",
+        "options": ["a. for", "b. to", "c. in", "d. with"],
+        "correct": 1
+    },
+    {
+        "q": "16. Living on the moon will be ....... than living in a space station.",
+        "options": ["a. more comfortable", "b. comfortable", "c. most comfortable", "d. comfortabler"],
+        "correct": 0
+    },
+    {
+        "q": "17. Jane decided ....... plant a tree.",
+        "options": ["a. for", "b. on", "c. to", "d. in"],
+        "correct": 2
+    },
+    {
+        "q": "18. They ....... a new bridge nowadays.",
+        "options": ["a. build", "b. builds", "c. are building", "d. is building"],
+        "correct": 2
+    },
+    {
+        "q": "19. They ........... old people last week.",
+        "options": ["a. help", "b. helps", "c. helped", "d. helping"],
+        "correct": 2
+    },
+    {
+        "q": "20. I ..................... (study) in the library at the moment.",
+        "options": ["a. study", "b. studies", "c. am studying", "d. are studying"],
+        "correct": 2
+    },
+    {
+        "q": "21. This summer, I ....... French at a language school.",
+        "options": ["a. study", "b. am studying", "c. studies", "d. studying"],
+        "correct": 1
+    },
+    {
+        "q": "22. The man looked ....... the last £10 in his wallet.",
+        "options": ["a. on", "b. at", "c. for", "d. in"],
+        "correct": 2
+    },
+    {
+        "q": "23. People will have better education ....... technology.",
+        "options": ["a. because of", "b. although", "c. but", "d. because"],
+        "correct": 0
+    }
+]
+
 @bot.message_handler(commands=['start', 'main_menu'])
 def send_welcome(message):
     markup = InlineKeyboardMarkup(row_width=2)
@@ -164,15 +245,11 @@ def handle_callbacks(call):
         if action == 'extra':
             extra_type = parts[2]
             if extra_type == 'tests':
+                # ✅ تم ربط زر الاختبارات بالاختبار التفاعلي
                 markup = InlineKeyboardMarkup(row_width=1)
-                markup.add(
-                    InlineKeyboardButton("مذاكرة فصل أول", callback_data=f"test_{grade}_study1"),
-                    InlineKeyboardButton("امتحان فصل أول", callback_data=f"test_{grade}_exam1"),
-                    InlineKeyboardButton("مذاكرة فصل ثاني", callback_data=f"test_{grade}_study2"),
-                    InlineKeyboardButton("امتحان فصل ثاني", callback_data=f"test_{grade}_exam2")
-                )
+                markup.add(InlineKeyboardButton("🚀 ابدأ الاختبار التفاعلي", callback_data="start_quiz"))
                 markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-                text = f"📝 <b>الصف {grade} - الاختبارات</b>\n\n👇 <b>اختر المطلوب:</b>"
+                text = f"📝 <b>الصف {grade} - الاختبارات</b>\n\n👇 <b>اضغط لبدء الاختبار:</b>"
                 edit_message(text, markup)
                 return
             
@@ -203,20 +280,24 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. أزرار الاختبارات الفرعية
+    # 4. منطق الاختبار التفاعلي
     # ==========================================
-    elif call.data.startswith('test_'):
+    elif call.data == 'start_quiz':
+        send_quiz_question(call.message.chat.id, 0)
+
+    elif call.data.startswith('ans_'):
         parts = call.data.split('_')
-        grade = parts[1]
-        test_type = parts[2]
+        q_index = int(parts[1])
+        selected = int(parts[2])
         
-        bot.answer_callback_query(call.id, "⚠️ لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
+        q = quiz_questions[q_index]
         
-        markup = InlineKeyboardMarkup(row_width=1)
-        markup.add(InlineKeyboardButton("🔙 العودة للاختبارات", callback_data=f"extra_{grade}_tests"))
-        
-        text = f"📝 <b>الصف {grade}</b>\n\n⚠️ <b>ملاحظة:</b> لم يتم رفع هذا الملف بعد."
-        edit_message(text, markup)
+        if selected == q["correct"]:
+            bot.answer_callback_query(call.id, "✅ إجابة صحيحة! أحسنت.", show_alert=True)
+            # ننتقل للسؤال التالي
+            send_quiz_question(call.message.chat.id, q_index + 1)
+        else:
+            bot.answer_callback_query(call.id, "❌ إجابة خاطئة. حاول مرة أخرى.", show_alert=True)
 
     # ==========================================
     # 5. الأزرار الفارغة
@@ -224,36 +305,46 @@ def handle_callbacks(call):
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
+# ✅ دالة إرسال السؤال
+def send_quiz_question(chat_id, q_index):
+    if q_index >= len(quiz_questions):
+        bot.send_message(chat_id, "🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", parse_mode='HTML')
+        return
+
+    q = quiz_questions[q_index]
+    markup = InlineKeyboardMarkup(row_width=2)
+    
+    # إنشاء أزرار الخيارات
+    for i, option in enumerate(q["options"]):
+        markup.add(InlineKeyboardButton(option, callback_data=f"ans_{q_index}_{i}"))
+
+    bot.send_message(chat_id, f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}", reply_markup=markup, parse_mode='HTML')
+
 # ==========================================
-# 6. الرد التلقائي على استفسارات الطلاب (مع حذف رسالة الطالب)
+# 6. الرد التلقائي على استفسارات الطلاب
 # ==========================================
 @bot.message_handler(func=lambda message: True)
 def auto_reply(message):
     text = message.text.lower()
     
-    # ✅ 1. حذف رسالة الطالب التي كتبها (لكي لا تبقى في المحادثة)
     try:
         bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     except Exception:
         pass 
     
-    # 2. الرد على استفسارات التحميل
     if "تحميل" in text or "حمل" in text or "نزل" in text or "تطبيق" in text:
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
             InlineKeyboardButton("📥 تطبيق (6)", url="https://t.me/EmarApp/79"),
             InlineKeyboardButton("📥 تطبيق (7-8-9)", url="https://t.me/EmarApp/102")
         )
-        
         bot.send_message(message.chat.id, 
             "📥 <b>لتحميل التطبيق:</b>\n\n"
             "يرجى اختيار التطبيق الخاص بصفك من الأزرار أدناه:\n\n"
             "• زر <b>(6)</b> مخصص للصف السادس.\n"
             "• زر <b>(7-8-9)</b> مخصص للصفوف السابع والثامن والتاسع.", 
-            reply_markup=markup, 
-            parse_mode='HTML')
+            reply_markup=markup, parse_mode='HTML')
     
-    # 3. الرد على استفسارات التفعيل
     elif "تفعيل" in text or "فعل" in text or "مفعل" in text:
         activation_text = (
             "🔑 <b>طريقة تفعيل التطبيق:</b>\n\n"
@@ -265,11 +356,9 @@ def auto_reply(message):
         )
         bot.send_message(message.chat.id, activation_text, parse_mode='HTML')
 
-    # 4. الأسئلة العامة
     elif "كيف" in text and ("اشتغل" in text or "يعمل" in text):
          bot.send_message(message.chat.id, "💡 <b>لبدء استخدام البوت:</b>\n\nاضغط على زر /start أو اكتب /main_menu لاختيار الصف الدراسي الخاص بك.", parse_mode='HTML')
 
-    # 5. الرد الافتراضي
     else:
         bot.send_message(message.chat.id, "أهلاً وسهلاً بك 🌟\n\nسنرد عليك بأقرب فرصة ممكنة. يرجى الانتظار قليلاً.", parse_mode='HTML')
 
