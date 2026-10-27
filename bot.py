@@ -5,6 +5,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import urllib.request
 import json
+import random
 
 # ✅ الآن الكود يقرأ التوكن من إعدادات Render بأمان
 TOKEN = os.environ.get("TOKEN")
@@ -219,7 +220,7 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. منطق الاختبار التفاعلي
+    # 4. منطق الاختبار التفاعلي (الخلط الآمن لكل طالب)
     # ==========================================
     elif call.data.startswith('start_quiz_'):
         q_index = int(call.data.split('_')[2])
@@ -237,9 +238,15 @@ def handle_callbacks(call):
         q = questions[q_index]
         markup = InlineKeyboardMarkup(row_width=2)
         
-        for i, option in enumerate(q["o"]):
-            letter = chr(97 + i)
-            markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{q_index}_{i}"))
+        # ✅ الخلط العشوائي للعرض فقط
+        shuffled_indices = list(range(len(q["o"])))
+        random.shuffle(shuffled_indices)
+        
+        for display_idx, original_idx in enumerate(shuffled_indices):
+            letter = chr(97 + display_idx)
+            option_text = q["o"][original_idx]
+            # نرسل رقم الخيار الأصلي في الـ callback_data لكي نتحقق منه لاحقاً
+            markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{q_index}_{original_idx}"))
 
         text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
         edit_message(text, markup)
@@ -247,16 +254,16 @@ def handle_callbacks(call):
     elif call.data.startswith('ans_'):
         parts = call.data.split('_')
         q_index = int(parts[1])
-        selected = int(parts[2])
+        selected_original_index = int(parts[2]) # هذا هو الخيار الأصلي (0,1,2,3)
         
         questions = load_questions()
         q = questions[q_index]
         
-        if selected == q["c"]:
+        # ✅ التحقق مباشرة من الإجابة الأصلية (بدون خلط هنا)
+        if selected_original_index == q["c"]:
             explanation = q.get("exp", "إجابة صحيحة!")
             bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
             
-            # ✅ حذف الرسالة السابقة
             try:
                 bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
             except Exception:
@@ -270,13 +277,19 @@ def handle_callbacks(call):
                     parse_mode='HTML'
                 )
             else:
+                next_q = questions[next_q_index]
                 markup = InlineKeyboardMarkup(row_width=2)
-                for i, option in enumerate(questions[next_q_index]["o"]):
-                    letter = chr(97 + i)
-                    markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{next_q_index}_{i}"))
                 
-                text = f"✅ {explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{questions[next_q_index]['q']}"
-                # ✅ إرسال رسالة جديدة بدلاً من تعديل القديمة
+                # ✅ خلط خيارات السؤال التالي
+                next_shuffled = list(range(len(next_q["o"])))
+                random.shuffle(next_shuffled)
+                
+                for display_idx, original_idx in enumerate(next_shuffled):
+                    letter = chr(97 + display_idx)
+                    option_text = next_q["o"][original_idx]
+                    markup.add(InlineKeyboardButton(f"{letter}. {option_text}", callback_data=f"ans_{next_q_index}_{original_idx}"))
+                
+                text = f"✅ {explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{next_q['q']}"
                 bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
         else:
             bot.answer_callback_query(call.id, "❌ إجابة خاطئة. حاول مرة أخرى.", show_alert=True)
