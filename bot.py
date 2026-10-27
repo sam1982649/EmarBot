@@ -185,7 +185,6 @@ def handle_callbacks(call):
         if action == 'extra':
             extra_type = parts[2]
             if extra_type == 'tests':
-                # ✅ ربط زر الاختبارات بالأسئلة التي تأتي من GitHub
                 markup = InlineKeyboardMarkup(row_width=1)
                 markup.add(InlineKeyboardButton("🚀 ابدأ الاختبار التفاعلي", callback_data="start_quiz_0"))
                 markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
@@ -220,36 +219,28 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 4. منطق الاختبار التفاعلي (يقرأ من GitHub)
+    # 4. منطق الاختبار التفاعلي
     # ==========================================
     elif call.data.startswith('start_quiz_'):
         q_index = int(call.data.split('_')[2])
         
-        questions = load_questions() # تحميل الأسئلة من GitHub
+        questions = load_questions()
         
         if not questions:
             bot.answer_callback_query(call.id, "⚠️ عذراً، لم نتمكن من تحميل الأسئلة. يرجى المحاولة لاحقاً.", show_alert=True)
             return
             
         if q_index >= len(questions):
-            bot.edit_message_text(
-                chat_id=call.message.chat.id, 
-                message_id=call.message.message_id, 
-                text="🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", 
-                parse_mode='HTML'
-            )
+            edit_message("🎉 <b>مبروك! لقد أكملت الاختبار بنجاح.</b>", None)
             return
 
         q = questions[q_index]
         markup = InlineKeyboardMarkup(row_width=2)
         
-        # إنشاء أزرار الخيارات بناءً على الملف
         for i, option in enumerate(q["o"]):
-            # نستخدم الحرف المقابل للخيار (a, b, c, d)
             letter = chr(97 + i)
             markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{q_index}_{i}"))
 
-        # عرض السؤال (نستخدم q['q'] للنص)
         text = f"❓ <b>السؤال {q_index + 1}:</b>\n\n{q['q']}"
         edit_message(text, markup)
 
@@ -261,18 +252,20 @@ def handle_callbacks(call):
         questions = load_questions()
         q = questions[q_index]
         
-        # التحقق من الإجابة الصحيحة (c في الملف)
         if selected == q["c"]:
-            # الإجابة صحيحة، نظهر الشرح وننتقل للسؤال التالي
             explanation = q.get("exp", "إجابة صحيحة!")
             bot.answer_callback_query(call.id, "✅ إجابة صحيحة!", show_alert=True)
             
-            # الانتقال للسؤال التالي
+            # ✅ حذف الرسالة السابقة
+            try:
+                bot.delete_message(chat_id=call.message.chat.id, message_id=call.message.message_id)
+            except Exception:
+                pass
+
             next_q_index = q_index + 1
             if next_q_index >= len(questions):
-                 bot.edit_message_text(
+                 bot.send_message(
                     chat_id=call.message.chat.id, 
-                    message_id=call.message.message_id, 
                     text=f"✅ {explanation}\n\n🎉 <b>مبروك! لقد أكملت جميع الأسئلة.</b>", 
                     parse_mode='HTML'
                 )
@@ -283,9 +276,9 @@ def handle_callbacks(call):
                     markup.add(InlineKeyboardButton(f"{letter}. {option}", callback_data=f"ans_{next_q_index}_{i}"))
                 
                 text = f"✅ {explanation}\n\n❓ <b>السؤال {next_q_index + 1}:</b>\n\n{questions[next_q_index]['q']}"
-                edit_message(text, markup)
+                # ✅ إرسال رسالة جديدة بدلاً من تعديل القديمة
+                bot.send_message(chat_id=call.message.chat.id, text=text, reply_markup=markup, parse_mode='HTML')
         else:
-            # إجابة خاطئة
             bot.answer_callback_query(call.id, "❌ إجابة خاطئة. حاول مرة أخرى.", show_alert=True)
 
     # ==========================================
