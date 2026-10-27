@@ -107,7 +107,7 @@ def handle_callbacks(call):
         else:
             app_url = "https://t.me/EmarApp"
 
-        # ✅ إضافة أزرار خاصة بالصف التاسع (كتاب الطالب والنشاط)
+        # ✅ تعديل الصف التاسع: زر استماع واحد فقط
         if grade_num == '9':
             extra_markup.add(
                 InlineKeyboardButton("📘 الشرح", callback_data=f"explain_{grade_num}"),
@@ -115,8 +115,7 @@ def handle_callbacks(call):
                 InlineKeyboardButton("📥 تحميل التطبيق", url=app_url),
                 InlineKeyboardButton("📝 اختبارات", callback_data=f"extra_{grade_num}_tests"),
                 InlineKeyboardButton("📄 أوراق عمل", callback_data=f"extra_{grade_num}_worksheets"),
-                InlineKeyboardButton("🎧 استماع - كتاب الطالب", url="https://t.me/EmarApp/121"),
-                InlineKeyboardButton("🎧 استماع - كتاب النشاط", url="https://t.me/EmarApp/122"),
+                InlineKeyboardButton("🎧 استماع", callback_data=f"listen_{grade_num}"), # زر واحد
                 InlineKeyboardButton("📖 الدليل", callback_data=f"extra_{grade_num}_guide"),
                 InlineKeyboardButton("📚 المواضيع", callback_data=f"extra_{grade_num}_topics")
             )
@@ -139,7 +138,23 @@ def handle_callbacks(call):
         edit_message(text, extra_markup)
 
     # ==========================================
-    # 2. الأقسام (اختبارات، شرح، الخ)
+    # 2. قسم الاستماع للصف التاسع (قائمة فرعية)
+    # ==========================================
+    elif call.data.startswith('listen_'):
+        grade = call.data.split('_')[1]
+        
+        markup = InlineKeyboardMarkup(row_width=1)
+        markup.add(
+            InlineKeyboardButton("📘 استماع - كتاب الطالب", url="https://t.me/EmarApp/121"),
+            InlineKeyboardButton("📗 استماع - كتاب النشاط", url="https://t.me/EmarApp/122")
+        )
+        markup.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+        
+        text = f"🎧 <b>الصف {grade} - ملفات الاستماع</b>\n\n👇 <b>اختر الكتاب:</b>"
+        edit_message(text, markup)
+
+    # ==========================================
+    # 3. الأقسام (اختبارات، شرح، الخ)
     # ==========================================
     elif call.data.startswith('extra_') or call.data.startswith('explain_') or call.data.startswith('vocab_'):
         parts = call.data.split('_')
@@ -149,7 +164,6 @@ def handle_callbacks(call):
         if action == 'extra':
             extra_type = parts[2]
             if extra_type == 'tests':
-                # ✅ قائمة الاختبارات الفرعية
                 markup = InlineKeyboardMarkup(row_width=1)
                 markup.add(
                     InlineKeyboardButton("مذاكرة فصل أول", callback_data=f"test_{grade}_study1"),
@@ -189,7 +203,7 @@ def handle_callbacks(call):
             edit_message(text, markup)
 
     # ==========================================
-    # 3. أزرار الاختبارات الفرعية
+    # 4. أزرار الاختبارات الفرعية
     # ==========================================
     elif call.data.startswith('test_'):
         parts = call.data.split('_')
@@ -205,10 +219,47 @@ def handle_callbacks(call):
         edit_message(text, markup)
 
     # ==========================================
-    # 4. الأزرار الفارغة (متبقية من الكود القديم)
+    # 5. الأزرار الفارغة
     # ==========================================
     elif call.data.startswith('nofile_') or call.data.startswith('lesson_'):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
+
+# ==========================================
+# 6. الرد التلقائي على استفسارات الطلاب
+# ==========================================
+@bot.message_handler(func=lambda message: True)
+def auto_reply(message):
+    text = message.text.lower()
+
+    if "تحميل" in text or "حمل" in text or "نزل" in text or "تطبيق" in text:
+        markup = InlineKeyboardMarkup(row_width=2)
+        markup.add(
+            InlineKeyboardButton("📥 تطبيق (6)", url="https://t.me/EmarApp/79"),
+            InlineKeyboardButton("📥 تطبيق (7-8-9)", url="https://t.me/EmarApp/102")
+        )
+        bot.reply_to(message, 
+            "📥 <b>لتحميل التطبيق:</b>\n\n"
+            "يرجى اختيار التطبيق الخاص بصفك من الأزرار أدناه:\n\n"
+            "• زر <b>(6)</b> مخصص للصف السادس.\n"
+            "• زر <b>(7-8-9)</b> مخصص للصفوف السابع والثامن والتاسع.", 
+            reply_markup=markup, parse_mode='HTML')
+    
+    elif "تفعيل" in text or "فعل" in text or "مفعل" in text:
+        activation_text = (
+            "🔑 <b>طريقة تفعيل التطبيق:</b>\n\n"
+            "1️⃣ اذهب إلى صفحة التفعيل في التطبيق.\n"
+            "2️⃣ انسخ <b>رقم المعرف (ID)</b> الخاص بك.\n"
+            "3️⃣ تواصل مع المطور عبر رقم الهاتف الموجود في صفحة التفعيل، وأرسل له رقم المعرف.\n\n"
+            "💰 <b>سعر التفعيل:</b> 1500 ليرة جديدة لكل صف.\n"
+            "💳 <b>طريقة الدفع:</b> شام كاش."
+        )
+        bot.reply_to(message, activation_text, parse_mode='HTML')
+
+    elif "كيف" in text and ("اشتغل" in text or "يعمل" in text):
+         bot.reply_to(message, "💡 <b>لبدء استخدام البوت:</b>\n\nاضغط على زر /start أو اكتب /main_menu لاختيار الصف الدراسي الخاص بك.", parse_mode='HTML')
+
+    else:
+        bot.reply_to(message, "أهلاً وسهلاً بك 🌟\n\nسنرد عليك بأقرب فرصة ممكنة. يرجى الانتظار قليلاً.", parse_mode='HTML')
 
 # ✅ كود فتح المنفذ الوهمي لإرضاء Render (لا تحذفه)
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
