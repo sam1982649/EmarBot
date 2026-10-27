@@ -140,7 +140,8 @@ def handle_callbacks(call):
         edit_message(welcome_text, get_main_menu_markup())
 
     elif call.data == 'share_bot':
-        share_url = f"https://t.me/share/url?url=https://t.me/Emar_English_bot&text=انضم إلى بوت إيمار التعليمي لتعلم اللغة الإنجليزية بسهولة!"
+        # ✅ تم تصحيح اسم البوت هنا
+        share_url = f"https://t.me/share/url?url=https://t.me/Emar_English_App_bot&text=انضم إلى بوت إيمار التعليمي لتعلم اللغة الإنجليزية بسهولة!"
         markup = InlineKeyboardMarkup()
         markup.add(InlineKeyboardButton("📤 اضغط هنا للمشاركة", url=share_url))
         markup.add(InlineKeyboardButton("🔙 العودة", callback_data="main_menu"))
