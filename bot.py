@@ -225,25 +225,35 @@ def handle_callbacks(call):
         bot.answer_callback_query(call.id, "⚠️ عذراً، لم يتم رفع هذا الملف بعد. سيتم إضافته قريباً!", show_alert=True)
 
 # ==========================================
-# 6. الرد التلقائي على استفسارات الطلاب
+# 6. الرد التلقائي على استفسارات الطلاب (مع حذف رسالة الطالب)
 # ==========================================
 @bot.message_handler(func=lambda message: True)
 def auto_reply(message):
     text = message.text.lower()
-
+    
+    # ✅ 1. حذف رسالة الطالب التي كتبها (لكي لا تبقى في المحادثة)
+    try:
+        bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    except Exception:
+        pass 
+    
+    # 2. الرد على استفسارات التحميل
     if "تحميل" in text or "حمل" in text or "نزل" in text or "تطبيق" in text:
         markup = InlineKeyboardMarkup(row_width=2)
         markup.add(
             InlineKeyboardButton("📥 تطبيق (6)", url="https://t.me/EmarApp/79"),
             InlineKeyboardButton("📥 تطبيق (7-8-9)", url="https://t.me/EmarApp/102")
         )
-        bot.reply_to(message, 
+        
+        bot.send_message(message.chat.id, 
             "📥 <b>لتحميل التطبيق:</b>\n\n"
             "يرجى اختيار التطبيق الخاص بصفك من الأزرار أدناه:\n\n"
             "• زر <b>(6)</b> مخصص للصف السادس.\n"
             "• زر <b>(7-8-9)</b> مخصص للصفوف السابع والثامن والتاسع.", 
-            reply_markup=markup, parse_mode='HTML')
+            reply_markup=markup, 
+            parse_mode='HTML')
     
+    # 3. الرد على استفسارات التفعيل
     elif "تفعيل" in text or "فعل" in text or "مفعل" in text:
         activation_text = (
             "🔑 <b>طريقة تفعيل التطبيق:</b>\n\n"
@@ -253,13 +263,15 @@ def auto_reply(message):
             "💰 <b>سعر التفعيل:</b> 1500 ليرة جديدة لكل صف.\n"
             "💳 <b>طريقة الدفع:</b> شام كاش."
         )
-        bot.reply_to(message, activation_text, parse_mode='HTML')
+        bot.send_message(message.chat.id, activation_text, parse_mode='HTML')
 
+    # 4. الأسئلة العامة
     elif "كيف" in text and ("اشتغل" in text or "يعمل" in text):
-         bot.reply_to(message, "💡 <b>لبدء استخدام البوت:</b>\n\nاضغط على زر /start أو اكتب /main_menu لاختيار الصف الدراسي الخاص بك.", parse_mode='HTML')
+         bot.send_message(message.chat.id, "💡 <b>لبدء استخدام البوت:</b>\n\nاضغط على زر /start أو اكتب /main_menu لاختيار الصف الدراسي الخاص بك.", parse_mode='HTML')
 
+    # 5. الرد الافتراضي
     else:
-        bot.reply_to(message, "أهلاً وسهلاً بك 🌟\n\nسنرد عليك بأقرب فرصة ممكنة. يرجى الانتظار قليلاً.", parse_mode='HTML')
+        bot.send_message(message.chat.id, "أهلاً وسهلاً بك 🌟\n\nسنرد عليك بأقرب فرصة ممكنة. يرجى الانتظار قليلاً.", parse_mode='HTML')
 
 # ✅ كود فتح المنفذ الوهمي لإرضاء Render (لا تحذفه)
 class SimpleHTTPRequestHandler(BaseHTTPRequestHandler):
