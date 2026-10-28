@@ -6,7 +6,6 @@
 #  • اختيار عدد الأسئلة (5/10/20/30/الكل)
 #  • زر "إنهاء" في أي لحظة
 #  • شاشة نتائج نهائية مع نسبة مئوية
-#  • دعم 3 صفوف × 2 دروس × 7 أنواع تمارين
 # ============================================================
 
 import telebot
@@ -28,12 +27,11 @@ bot = telebot.TeleBot(TOKEN)
 
 BASE_URL = "https://raw.githubusercontent.com/sam1982649/Emar7-8_data/main"
 
+# ✅ تم تعديل هذه القائمة لتشمل الصفوف المطلوبة فقط
 ACTIVE_GRADES = ["7", "8", "9"]
 
 GRADE_NAMES = {
-    "4": "الرابع", "5": "الخامس", "6": "السادس",
     "7": "السابع", "8": "الثامن", "9": "التاسع",
-    "10": "العاشر", "11": "الحادي عشر", "12": "بكالوريا",
 }
 
 LESSON_NAMES = {
@@ -128,15 +126,9 @@ user_texts_sessions = {}  # جلسة فهم قراءة (نصية للإجابا�
 def main_menu():
     m = InlineKeyboardMarkup(row_width=2)
     m.add(
-        InlineKeyboardButton("🎒 الصف الرابع", callback_data="grade_4"),
-        InlineKeyboardButton("🎒 الصف الخامس", callback_data="grade_5"),
-        InlineKeyboardButton("🎒 الصف السادس", callback_data="grade_6"),
         InlineKeyboardButton("📘 الصف السابع", callback_data="grade_7"),
         InlineKeyboardButton("📗 الصف الثامن", callback_data="grade_8"),
         InlineKeyboardButton("📙 الصف التاسع", callback_data="grade_9"),
-        InlineKeyboardButton("🎓 الصف العاشر", callback_data="grade_10"),
-        InlineKeyboardButton("🎓 الحادي عشر", callback_data="grade_11"),
-        InlineKeyboardButton("🏆 بكالوريا", callback_data="grade_12"),
     )
     m.add(InlineKeyboardButton("🔑 تفعيل التطبيق", callback_data="activate_info"))
     m.add(InlineKeyboardButton("📤 شارك البوت", callback_data="share_bot"))
@@ -224,7 +216,7 @@ def handle_callbacks(call):
         if grade in ACTIVE_GRADES:
             text = f"🎓 <b>الصف {GRADE_NAMES[grade]}</b>\n\n👇 اختر:"
         else:
-            text = f"🎓 <b>الصف {GRADE_NAMES[grade]}</b>\n\n🚧 قيد التطوير."
+            text = f"🎓 <b>الصف {GRADE_NAMES.get(grade, '')}</b>\n\n🚧 قيد التطوير."
         safe_edit(call, text, grade_menu(grade))
 
     elif data.startswith("lesson_"):
@@ -306,9 +298,10 @@ def handle_callbacks(call):
         ask_count(call, grade, lesson, ex_type)
 
     elif data.startswith("convert_end_") or data.startswith("free_end_") or data.startswith("texts_end_"):
-        # إنهاء التمارين النصية
         parts = data.split("_")
-        ex_type, grade, lesson = parts[0], parts[1], parts[3] if len(parts) > 3 else parts[2]
+        ex_type = parts[0].replace("_end", "")
+        grade = parts[1]
+        lesson = parts[2] if len(parts) > 2 else "1"
         end_text_exercise(call, grade, lesson, ex_type)
 
 # ============================================================
@@ -401,15 +394,12 @@ def show_topics(call, grade, lesson):
 # 🎯 شاشة اختيار عدد الأسئلة
 # ============================================================
 def ask_count(call, grade, lesson, ex_type):
-    chat_id = call.message.chat.id
-
     file_map = {"quiz": "grammar", "convert": "convert", "match": "match"}
     data = load_json(grade, lesson, file_map[ex_type])
     if not data:
         dev_alert(call, "⚠️ تعذر التحميل")
         return
 
-    # حساب العدد المتاح
     if ex_type == "quiz":
         available = len(data.get("questions", []))
         title = "📝 اختبار القواعد"
@@ -424,7 +414,6 @@ def ask_count(call, grade, lesson, ex_type):
         dev_alert(call, "⚠️ لا توجد أسئلة")
         return
 
-    # بناء الأزرار الذكية
     m = InlineKeyboardMarkup(row_width=3)
     options = []
     if available >= 30:
@@ -433,17 +422,10 @@ def ask_count(call, grade, lesson, ex_type):
         options = [5, 10, 15]
     elif available >= 10:
         options = [5, 10]
-    # إذا أقل من 10 → فقط "الكل"
 
     for n in options:
-        m.add(InlineKeyboardButton(
-            f"{n} أسئلة",
-            callback_data=f"count_{grade}_{lesson}_{ex_type}_{n}"
-        ))
-    m.add(InlineKeyboardButton(
-        f"🎲 الكل ({available})",
-        callback_data=f"count_{grade}_{lesson}_{ex_type}_all"
-    ))
+        m.add(InlineKeyboardButton(f"{n} أسئلة", callback_data=f"count_{grade}_{lesson}_{ex_type}_{n}"))
+    m.add(InlineKeyboardButton(f"🎲 الكل ({available})", callback_data=f"count_{grade}_{lesson}_{ex_type}_all"))
     m.add(InlineKeyboardButton("🔙 العودة", callback_data=f"lesson_{grade}_{lesson}"))
 
     text = (
@@ -455,18 +437,16 @@ def ask_count(call, grade, lesson, ex_type):
     safe_edit(call, text, m)
 
 # ============================================================
-# 🎯 بدء التمرين بعد اختيار العدد
+# 🎯 بدء التمرين
 # ============================================================
 def start_exercise(call, grade, lesson, ex_type, count_str):
     chat_id = call.message.chat.id
-
     file_map = {"quiz": "grammar", "convert": "convert", "match": "match"}
     data = load_json(grade, lesson, file_map[ex_type])
     if not data:
         dev_alert(call, "⚠️ تعذر التحميل")
         return
 
-    # بناء قائمة الأسئلة
     if ex_type == "quiz":
         all_q = data.get("questions", [])
         for q in all_q:
@@ -502,7 +482,6 @@ def start_exercise(call, grade, lesson, ex_type, count_str):
             n = min(int(count_str), len(all_items))
             questions = all_items[:n]
 
-    # حفظ الجلسة
     user_sessions[chat_id] = {
         "type": ex_type,
         "grade": grade,
@@ -551,7 +530,6 @@ def send_question(chat_id):
         bot.send_message(chat_id, text, reply_markup=m, parse_mode='HTML')
 
     elif ex_type == "convert":
-        # تحويل = نصي، نحتاج جلسة نصية منفصلة
         user_convert_sessions[chat_id] = {
             "grade": sess["grade"], "lesson": sess["lesson"],
             "questions": sess["questions"], "index": 0,
@@ -710,7 +688,6 @@ def start_texts(call, grade, lesson):
         dev_alert(call, "⚠️ تعذر التحميل")
         return
     texts = data["texts"]
-    # بناء قائمة مسطحة من (نص، سؤال)
     all_q = []
     for t in texts:
         for q in t.get("questions", []):
@@ -741,7 +718,6 @@ def send_text_question(chat_id):
     text_data = item["text"]
     q = item["q"]
 
-    # إذا تغير النص، اعرضه أولاً
     text_id = text_data.get("id", "")
     if sess["current_text"] != text_id:
         sess["current_text"] = text_id
@@ -781,308 +757,4 @@ def send_text_question(chat_id):
         m = InlineKeyboardMarkup(row_width=2)
         m.add(
             InlineKeyboardButton("✅ صح", callback_data=f"ans_{sess['grade']}_{sess['lesson']}_texts_{idx}_T"),
-            InlineKeyboardButton("❌ خطأ", callback_data=f"ans_{sess['grade']}_{sess['lesson']}_texts_{idx}_F"),
-        )
-        m.add(end_btn)
-        bot.send_message(chat_id, header, reply_markup=m, parse_mode='HTML')
-
-    elif q_type == "answer":
-        # نصي - نحتاج معالج منفصل
-        pass  # TODO
-
-# ============================================================
-# ✅ معالجة الإجابة
-# ============================================================
-def handle_answer(call, grade, lesson, ex_type, idx, choice):
-    chat_id = call.message.chat.id
-
-    if ex_type == "quiz":
-        sess = user_sessions.get(chat_id)
-        if not sess or sess["index"] != idx:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        q = sess["questions"][idx]
-        is_correct = (int(choice) == q["c"])
-        if is_correct:
-            sess["correct"] += 1
-        else:
-            sess["wrong"] += 1
-        status = "✅ <b>إجابة صحيحة!</b>" if is_correct else "❌ <b>إجابة خاطئة.</b>"
-        text = f"{status}\n\n{q.get('exp','')}"
-        m = InlineKeyboardMarkup()
-        m.add(InlineKeyboardButton(f"➡️ التالي ({idx+2}/{len(sess['questions'])})", callback_data=f"next_{grade}_{lesson}_quiz"))
-        m.add(InlineKeyboardButton("🚪 إنهاء", callback_data=f"end_{grade}_{lesson}_quiz"))
-        safe_edit(call, text, m)
-
-    elif ex_type == "match":
-        sess = user_sessions.get(chat_id)
-        if not sess or sess["index"] != idx:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        q = sess["questions"][idx]
-        sent = q["sent"]
-        grp = q["group"]
-        is_correct = (choice == sent["correct"])
-        if is_correct:
-            sess["correct"] += 1
-            text = f"✅ <b>صحيح!</b>\n\n{sent['full_sentence']}\n\n<i>{sent.get('translation','')}</i>"
-        else:
-            sess["wrong"] += 1
-            correct_opt = next((o for o in grp["options"] if o["letter"] == sent["correct"]), None)
-            correct_text = correct_opt["text"] if correct_opt else "?"
-            text = f"❌ <b>خطأ.</b>\n\n✅ الصحيحة: <b>{sent['correct']}. {correct_text}</b>\n\n{sent['full_sentence']}\n\n<i>{sent.get('translation','')}</i>"
-        m = InlineKeyboardMarkup()
-        m.add(InlineKeyboardButton(f"➡️ التالي ({idx+2}/{len(sess['questions'])})", callback_data=f"next_{grade}_{lesson}_match"))
-        m.add(InlineKeyboardButton("🚪 إنهاء", callback_data=f"end_{grade}_{lesson}_match"))
-        safe_edit(call, text, m)
-
-    elif ex_type == "texts":
-        sess = user_texts_sessions.get(chat_id)
-        if not sess or sess["index"] != idx:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        q = sess["questions"][idx]["q"]
-        q_type = q.get("type", "choice")
-        if q_type == "choice":
-            is_correct = (int(choice) == q["correct"])
-        else:
-            is_correct = ((choice == "T") == q["correct"])
-        if is_correct:
-            sess["correct"] += 1
-        else:
-            sess["wrong"] += 1
-        explanation = q.get("explanation", "")
-        status = "✅ <b>صحيح!</b>" if is_correct else "❌ <b>خطأ.</b>"
-        text = f"{status}\n\n{explanation}"
-        m = InlineKeyboardMarkup()
-        m.add(InlineKeyboardButton(f"➡️ التالي ({idx+2}/{len(sess['questions'])})", callback_data=f"next_{grade}_{lesson}_texts"))
-        m.add(InlineKeyboardButton("🚪 إنهاء", callback_data=f"texts_end_{grade}_{lesson}"))
-        safe_edit(call, text, m)
-
-# ============================================================
-# ➡️ السؤال التالي
-# ============================================================
-def next_question(call, grade, lesson, ex_type):
-    chat_id = call.message.chat.id
-
-    if ex_type in ("quiz", "match"):
-        sess = user_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        sess["index"] += 1
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_question(chat_id)
-
-    elif ex_type == "texts":
-        sess = user_texts_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        sess["index"] += 1
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_text_question(chat_id)
-
-# ============================================================
-# 🚪 الإنهاء المبكر
-# ============================================================
-def end_exercise(call, grade, lesson, ex_type):
-    chat_id = call.message.chat.id
-    if ex_type in ("quiz", "match"):
-        sess = user_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_results(chat_id, early=True)
-        del user_sessions[chat_id]
-
-def end_text_exercise(call, grade, lesson, ex_type):
-    chat_id = call.message.chat.id
-    if ex_type == "convert":
-        sess = user_convert_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_text_results(chat_id, sess, "convert", early=True)
-        del user_convert_sessions[chat_id]
-    elif ex_type == "free":
-        sess = user_free_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_text_results(chat_id, sess, "free", early=True)
-        del user_free_sessions[chat_id]
-    elif ex_type == "texts":
-        sess = user_texts_sessions.get(chat_id)
-        if not sess:
-            dev_alert(call, "⚠️ انتهت الجلسة")
-            return
-        try:
-            bot.delete_message(chat_id, call.message.message_id)
-        except Exception:
-            pass
-        send_text_results(chat_id, sess, "texts", early=True)
-        del user_texts_sessions[chat_id]
-
-# ============================================================
-# 🏁 شاشة النتائج (للتمارين بالأزرار)
-# ============================================================
-def send_results(chat_id, early=False):
-    sess = user_sessions.get(chat_id)
-    if not sess:
-        return
-    total = len(sess["questions"])
-    answered = sess["correct"] + sess["wrong"]
-    correct = sess["correct"]
-    wrong = sess["wrong"]
-    remaining = total - answered
-
-    if early or answered < total:
-        title = "🚪 <b>أنهيت التمرين مبكراً</b>"
-    else:
-        title = "🎉 <b>أكملت التمرين!</b>"
-
-    percent = int((correct / answered) * 100) if answered > 0 else 0
-
-    if percent >= 90:
-        emoji, msg = "🏆", "ممتاز! أداء رائع"
-    elif percent >= 70:
-        emoji, msg = "🌟", "جيد جداً! واصل"
-    elif percent >= 50:
-        emoji, msg = "👍", "جيد، تحتاج مراجعة"
-    else:
-        emoji, msg = "💪", "تحتاج مزيداً من التدريب"
-
-    text = (
-        f"{title}\n"
-        f"━━━━━━━━━━━━━━━━━━━\n\n"
-        f"✅ <b>صحيحة:</b> {correct}\n"
-        f"❌ <b>خاطئة:</b> {wrong}\n"
-    )
-    if remaining > 0:
-        text += f"⏭️ <b>متبقية:</b> {remaining}\n"
-    if answered > 0:
-        text += f"\n📊 <b>النسبة:</b> {percent}%\n\n"
-        text += f"{emoji} {msg}"
-
-    m = InlineKeyboardMarkup(row_width=2)
-    m.add(
-        InlineKeyboardButton("🔄 إعادة", callback_data=f"restart_{sess['grade']}_{sess['lesson']}_{sess['type']}"),
-        InlineKeyboardButton("🔙 رجوع للدرس", callback_data=f"lesson_{sess['grade']}_{sess['lesson']}"),
-    )
-    bot.send_message(chat_id, text, reply_markup=m, parse_mode='HTML')
-
-# ============================================================
-# 🏁 شاشة النتائج (للتمارين النصية)
-# ============================================================
-def send_text_results(chat_id, sess, ex_type, early=False):
-    total = len(sess["questions"])
-    answered = sess["correct"] + sess["wrong"]
-    correct = sess["correct"]
-    wrong = sess["wrong"]
-    remaining = total - answered
-
-    if early or answered < total:
-        title = "🚪 <b>أنهيت التمرين مبكراً</b>"
-    else:
-        title = "🎉 <b>أكملت التمرين!</b>"
-
-    percent = int((correct / answered) * 100) if answered > 0 else 0
-
-    if percent >= 90:
-        emoji, msg = "🏆", "ممتاز!"
-    elif percent >= 70:
-        emoji, msg = "🌟", "جيد جداً!"
-    elif percent >= 50:
-        emoji, msg = "👍", "جيد"
-    else:
-        emoji, msg = "💪", "تحتاج مزيداً من التدريب"
-
-    text = (
-        f"{title}\n"
-        f"━━━━━━━━━━━━━━━━━━━\n\n"
-        f"✅ <b>صحيحة:</b> {correct}\n"
-        f"❌ <b>خاطئة:</b> {wrong}\n"
-    )
-    if remaining > 0:
-        text += f"⏭️ <b>متبقية:</b> {remaining}\n"
-    if answered > 0:
-        text += f"\n📊 <b>النسبة:</b> {percent}%\n\n"
-        text += f"{emoji} {msg}"
-
-    m = InlineKeyboardMarkup(row_width=2)
-    m.add(
-        InlineKeyboardButton("🔄 إعادة", callback_data=f"restart_{sess['grade']}_{sess['lesson']}_{ex_type}"),
-        InlineKeyboardButton("🔙 رجوع للدرس", callback_data=f"lesson_{sess['grade']}_{sess['lesson']}"),
-    )
-    bot.send_message(chat_id, text, reply_markup=m, parse_mode='HTML')
-
-# ============================================================
-# 💬 الردود التلقائية
-# ============================================================
-@bot.message_handler(func=lambda m: (
-    m.chat.id not in user_convert_sessions and
-    m.chat.id not in user_free_sessions and
-    m.chat.id not in user_texts_sessions
-))
-def auto_reply(message):
-    text = (message.text or "").lower()
-    if "تحميل" in text or "حمل" in text or "تطبيق" in text:
-        m = InlineKeyboardMarkup(row_width=2)
-        m.add(
-            InlineKeyboardButton("📥 تطبيق (6)", url="https://t.me/EmarApp/79"),
-            InlineKeyboardButton("📥 تطبيق (7-8-9)", url="https://t.me/EmarApp/102"),
-        )
-        bot.send_message(message.chat.id, "📥 <b>تحميل التطبيق:</b>", reply_markup=m, parse_mode='HTML')
-    elif "تفعيل" in text or "فعل" in text:
-        bot.send_message(
-            message.chat.id,
-            "🔑 <b>التفعيل:</b>\n\n💰 1500 ليرة/صف\n💳 شام كاش\n\n📱 تواصل مع المطور",
-            parse_mode='HTML'
-        )
-    else:
-        bot.send_message(message.chat.id, "🌟 أهلاً!\n\nاستخدم /start للبدء.", parse_mode='HTML')
-
-# ============================================================
-# 🌐 سيرفر HTTP لـ Render
-# ============================================================
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b'Bot is running!')
-    def log_message(self, *args):
-        pass
-
-def run_server():
-    port = int(os.environ.get("PORT", 8080))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    server.serve_forever()
-
-threading.Thread(target=run_server, daemon=True).start()
-
-# ============================================================
-# 🚀 التشغيل
-# ============================================================
-if __name__ == "__main__":
-    print("✅ البوت يعمل — الإصدار 3.0")
-    bot.infinity_polling()
-اريد.تعديله ليشمل فقط  سابع تامن تاسع
+            Inline
