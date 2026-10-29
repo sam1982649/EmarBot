@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
-# ✅ اسم المستخدم الخاص بك (تم وضعه هنا)
+# ✅ اسم المستخدم الخاص بك
 MY_PERSONAL_USERNAME = "Samer_H_Ibrahim" 
 
 # ============================================================
@@ -42,16 +42,19 @@ def grade_menu(grade):
         
     m.add(InlineKeyboardButton("📥 تحميل التطبيق", url=app_url))
     
-    # ✅ إضافة الأزرار الخاصة بكل صف
-    if grade == "6":
-        m.add(InlineKeyboardButton("📝 اختبارات (مذاكرة فصل أول)", url="https://t.me/EmarApp/129"))
-    elif grade == "7":
+    # أزرار خاصة بكل صف (مواضيع)
+    if grade == "7":
         m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/123"))
     elif grade == "8":
         m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/124"))
     elif grade == "9":
-        m.add(InlineKeyboardButton("📄 أوراق عمل (Unit 1,2,3)", url="https://t.me/EmarApp/128"))
         m.add(InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9"))
+    
+    # ✅ زر اختبارات لكل الصفوف
+    m.add(InlineKeyboardButton("📝 اختبارات", callback_data=f"tests_{grade}"))
+    
+    # ✅ زر أوراق عمل لكل الصفوف
+    m.add(InlineKeyboardButton("📄 أوراق عمل", callback_data=f"worksheets_{grade}"))
     
     # زر التفعيل
     m.add(InlineKeyboardButton("🔑 التفعيل والاشتراك", callback_data="activate_info"))
@@ -143,6 +146,40 @@ def handle_callbacks(call):
         )
         safe_edit("🎧 <b>ملفات الاستماع للصف التاسع</b>\n\n👇 <b>اختر الكتاب:</b>", m)
 
+    # ===== قسم الاختبارات =====
+    elif data.startswith("tests_"):
+        grade = data.split("_")[1]
+        
+        if grade == "6":
+            m = InlineKeyboardMarkup(row_width=1)
+            m.add(
+                InlineKeyboardButton("📝 مذاكرة فصل أول", url="https://t.me/EmarApp/129"),
+                InlineKeyboardButton("🔙 العودة", callback_data="grade_6")
+            )
+            safe_edit("📝 <b>اختبارات الصف السادس</b>\n\n👇 <b>اختر المطلوب:</b>", m)
+        else:
+            grade_names = {"7": "السابع", "8": "الثامن", "9": "التاسع"}
+            m = InlineKeyboardMarkup()
+            m.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+            safe_edit(f"🚧 <b>اختبارات الصف {grade_names.get(grade, '')} قيد التجهيز حالياً.</b>\n\nسيتم إضافتها قريباً جداً، ترقبوا التحديثات! ✨", m)
+
+    # ===== قسم أوراق العمل =====
+    elif data.startswith("worksheets_"):
+        grade = data.split("_")[1]
+        
+        if grade == "9":
+            m = InlineKeyboardMarkup(row_width=1)
+            m.add(
+                InlineKeyboardButton("📄 أوراق عمل الوحدات (Unit 1, 2, 3)", url="https://t.me/EmarApp/128"),
+                InlineKeyboardButton("🔙 العودة", callback_data="grade_9")
+            )
+            safe_edit("📄 <b>أوراق عمل الصف التاسع</b>\n\n👇 <b>اختر المطلوب:</b>", m)
+        else:
+            grade_names = {"6": "السادس", "7": "السابع", "8": "الثامن"}
+            m = InlineKeyboardMarkup()
+            m.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
+            safe_edit(f"🚧 <b>أوراق عمل الصف {grade_names.get(grade, '')} قيد التجهيز حالياً.</b>\n\nسيتم إضافتها قريباً جداً، ترقبوا التحديثات! ✨", m)
+
 # ============================================================
 # 💬 الردود التلقائية (الرسائل النصية)
 # ============================================================
@@ -201,5 +238,5 @@ threading.Thread(target=run_server, daemon=True).start()
 # 🚀 التشغيل
 # ============================================================
 if __name__ == "__main__":
-    print("✅ البوت يعمل — الإصدار المحدث مع الروابط")
+    print("✅ البوت يعمل — مع إضافة قسم الاختبارات وأوراق العمل")
     bot.infinity_polling()
