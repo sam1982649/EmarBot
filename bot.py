@@ -41,12 +41,21 @@ def grade_menu(grade):
         app_url = "https://t.me/EmarApp"
         
     m.add(InlineKeyboardButton("📥 تحميل التطبيق", url=app_url))
+    
+    # ✅ إضافة الأزرار الخاصة بكل صف
+    if grade == "6":
+        m.add(InlineKeyboardButton("📝 اختبارات (مذاكرة فصل أول)", url="https://t.me/EmarApp/129"))
+    elif grade == "7":
+        m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/123"))
+    elif grade == "8":
+        m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/124"))
+    elif grade == "9":
+        m.add(InlineKeyboardButton("📄 أوراق عمل (Unit 1,2,3)", url="https://t.me/EmarApp/128"))
+        m.add(InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9"))
+    
+    # زر التفعيل
     m.add(InlineKeyboardButton("🔑 التفعيل والاشتراك", callback_data="activate_info"))
     
-    # ميزة الاستماع للصف التاسع فقط
-    if grade == "9":
-        m.add(InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9"))
-        
     # زر العودة
     m.add(InlineKeyboardButton("🔙 العودة للقائمة", callback_data="main_menu"))
     return m
@@ -192,5 +201,5 @@ threading.Thread(target=run_server, daemon=True).start()
 # 🚀 التشغيل
 # ============================================================
 if __name__ == "__main__":
-    print("✅ البوت يعمل — الإصدار المبسط")
+    print("✅ البوت يعمل — الإصدار المحدث مع الروابط")
     bot.infinity_polling()
