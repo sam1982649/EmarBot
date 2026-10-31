@@ -146,7 +146,7 @@ def handle_callbacks(call):
         )
         safe_edit("🎧 <b>ملفات الاستماع للصف التاسع</b>\n\n👇 <b>اختر الكتاب:</b>", m)
 
-    # ===== قسم الاختبارات =====
+    # ===== قسم الاختبارات (تم التعديل هنا) =====
     elif data.startswith("tests_"):
         grade = data.split("_")[1]
         
@@ -157,11 +157,30 @@ def handle_callbacks(call):
                 InlineKeyboardButton("🔙 العودة", callback_data="grade_6")
             )
             safe_edit("📝 <b>اختبارات الصف السادس</b>\n\n👇 <b>اختر المطلوب:</b>", m)
-        else:
-            grade_names = {"7": "السابع", "8": "الثامن", "9": "التاسع"}
-            m = InlineKeyboardMarkup()
-            m.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-            safe_edit(f"🚧 <b>اختبارات الصف {grade_names.get(grade, '')} قيد التجهيز حالياً.</b>\n\nسيتم إضافتها قريباً جداً، ترقبوا التحديثات! ✨", m)
+            
+        elif grade == "7":
+            m = InlineKeyboardMarkup(row_width=1)
+            m.add(
+                InlineKeyboardButton("📝 Unit 1.2.3", url="https://t.me/EmarApp/133"),
+                InlineKeyboardButton("🔙 العودة", callback_data="grade_7")
+            )
+            safe_edit("📝 <b>اختبارات الصف السابع</b>\n\n👇 <b>اختر المطلوب:</b>", m)
+            
+        elif grade == "8":
+            m = InlineKeyboardMarkup(row_width=1)
+            m.add(
+                InlineKeyboardButton("📝 Unit 1.2.3", url="https://t.me/EmarApp/132"),
+                InlineKeyboardButton("🔙 العودة", callback_data="grade_8")
+            )
+            safe_edit("📝 <b>اختبارات الصف الثامن</b>\n\n👇 <b>اختر المطلوب:</b>", m)
+            
+        elif grade == "9":
+            m = InlineKeyboardMarkup(row_width=1)
+            m.add(
+                InlineKeyboardButton("📝 Unit 1.2.3", url="https://t.me/EmarApp/131"),
+                InlineKeyboardButton("🔙 العودة", callback_data="grade_9")
+            )
+            safe_edit("📝 <b>اختبارات الصف التاسع</b>\n\n👇 <b>اختر المطلوب:</b>", m)
 
     # ===== قسم أوراق العمل =====
     elif data.startswith("worksheets_"):
