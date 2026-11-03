@@ -11,7 +11,7 @@ TOKEN = os.environ.get("TOKEN")
 bot = telebot.TeleBot(TOKEN)
 
 # ✅ اسم المستخدم الخاص بك
-MY_PERSONAL_USERNAME = "Samer_H_Ibrahim" 
+MY_PERSONAL_USERNAME = "Samer_H_Ibrahim"
 
 # ============================================================
 # 🎨 القوائم والأزرار
@@ -31,7 +31,7 @@ def main_menu():
 
 def grade_menu(grade):
     m = InlineKeyboardMarkup(row_width=1)
-    
+
     # روابط التحميل
     if grade in ["7", "8", "9"]:
         app_url = "https://t.me/EmarApp/102"
@@ -39,26 +39,30 @@ def grade_menu(grade):
         app_url = "https://t.me/EmarApp/79"
     else:
         app_url = "https://t.me/EmarApp"
-        
+
     m.add(InlineKeyboardButton("📥 تحميل التطبيق", url=app_url))
-    
-    # أزرار خاصة بكل صف (مواضيع)
+
+    # أزرار خاصة بكل صف
     if grade == "7":
         m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/123"))
     elif grade == "8":
         m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/124"))
     elif grade == "9":
         m.add(InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9"))
-    
+
     # ✅ زر اختبارات لكل الصفوف
     m.add(InlineKeyboardButton("📝 اختبارات", callback_data=f"tests_{grade}"))
-    
+
     # ✅ زر أوراق عمل لكل الصفوف
     m.add(InlineKeyboardButton("📄 أوراق عمل", callback_data=f"worksheets_{grade}"))
-    
+
+    # ✅ زر قواعد ومفردات للصف التاسع فقط
+    if grade == "9":
+        m.add(InlineKeyboardButton("📐 قواعد ومفردات", callback_data="grammar_9"))
+
     # زر التفعيل
     m.add(InlineKeyboardButton("🔑 التفعيل والاشتراك", callback_data="activate_info"))
-    
+
     # زر العودة
     m.add(InlineKeyboardButton("🔙 العودة للقائمة", callback_data="main_menu"))
     return m
@@ -66,14 +70,16 @@ def grade_menu(grade):
 # ============================================================
 # 🚀 أوامر البداية
 # ============================================================
+WELCOME_TEXT = (
+    "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n"
+    "📚 هذا البوت مخصص لتسهيل وصول الطلاب إلى تطبيق اللغة الإنجليزية.\n"
+    "وملفات اللغة الانكليزية منهاج ايمار سوريا\n\n"
+    "👇 <b>الرجاء اختيار الصف الدراسي:</b>"
+)
+
 @bot.message_handler(commands=['start', 'main_menu'])
 def cmd_start(message):
-    text = (
-        "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n"
-        "📚 هذا البوت مخصص لتسهيل وصول الطلاب إلى تطبيق اللغة الإنجليزية.\n\n"
-        "👇 <b>الرجاء اختيار الصف الدراسي:</b>"
-    )
-    bot.send_message(message.chat.id, text, reply_markup=main_menu(), parse_mode='HTML')
+    bot.send_message(message.chat.id, WELCOME_TEXT, reply_markup=main_menu(), parse_mode='HTML')
 
 # ============================================================
 # 🎯 معالجة الأزرار
@@ -89,18 +95,19 @@ def handle_callbacks(call):
 
     def safe_edit(text, markup):
         try:
-            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=text, reply_markup=markup, parse_mode='HTML')
+            bot.edit_message_text(
+                chat_id=call.message.chat.id,
+                message_id=call.message.message_id,
+                text=text,
+                reply_markup=markup,
+                parse_mode='HTML'
+            )
         except Exception:
             bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode='HTML')
 
     # ===== القائمة الرئيسية =====
     if data == "main_menu":
-        text = (
-            "🌟 <b>أهلاً بك في بوت إيمار التعليمي</b> 🌟\n\n"
-            "📚 هذا البوت مخصص لتسهيل وصول الطلاب إلى تطبيق اللغة الإنجليزية.\n\n"
-            "👇 <b>الرجاء اختيار الصف الدراسي:</b>"
-        )
-        safe_edit(text, main_menu())
+        safe_edit(WELCOME_TEXT, main_menu())
 
     # ===== اختيار الصف =====
     elif data.startswith("grade_"):
@@ -146,10 +153,49 @@ def handle_callbacks(call):
         )
         safe_edit("🎧 <b>ملفات الاستماع للصف التاسع</b>\n\n👇 <b>اختر الكتاب:</b>", m)
 
-    # ===== قسم الاختبارات (تم التعديل هنا) =====
+    # ===== قسم قواعد ومفردات - الصف التاسع =====
+    elif data == "grammar_9":
+        m = InlineKeyboardMarkup(row_width=2)
+        # الوحدات 1-4 بروابط جاهزة
+        m.add(
+            InlineKeyboardButton("Unit 1", url="https://t.me/EmarApp/135"),
+            InlineKeyboardButton("Unit 2", url="https://t.me/EmarApp/136?single"),
+            InlineKeyboardButton("Unit 3", url="https://t.me/EmarApp/138"),
+            InlineKeyboardButton("Unit 4", url="https://t.me/EmarApp/139"),
+        )
+        # الوحدات 5-6 مؤقتة
+        m.add(
+            InlineKeyboardButton("Unit 5", callback_data="soon"),
+            InlineKeyboardButton("Unit 6", callback_data="soon"),
+        )
+        # مراجعة 1-6
+        m.add(InlineKeyboardButton("📖 مراجعة (1-6)", callback_data="soon"))
+        # الوحدات 7-12 مؤقتة
+        m.add(
+            InlineKeyboardButton("Unit 7", callback_data="soon"),
+            InlineKeyboardButton("Unit 8", callback_data="soon"),
+            InlineKeyboardButton("Unit 9", callback_data="soon"),
+            InlineKeyboardButton("Unit 10", callback_data="soon"),
+            InlineKeyboardButton("Unit 11", callback_data="soon"),
+            InlineKeyboardButton("Unit 12", callback_data="soon"),
+        )
+        # مراجعة 7-12
+        m.add(InlineKeyboardButton("📖 مراجعة (7-12)", callback_data="soon"))
+        # العودة
+        m.add(InlineKeyboardButton("🔙 العودة", callback_data="grade_9"))
+        safe_edit("📐 <b>قواعد ومفردات - الصف التاسع</b>\n\n👇 <b>اختر الوحدة:</b>", m)
+
+    # ===== زر "قريباً" =====
+    elif data == "soon":
+        try:
+            bot.answer_callback_query(call.id, "🚧 هذا القسم قيد التجهيز، ترقبه قريباً!")
+        except Exception:
+            pass
+
+    # ===== قسم الاختبارات =====
     elif data.startswith("tests_"):
         grade = data.split("_")[1]
-        
+
         if grade == "6":
             m = InlineKeyboardMarkup(row_width=1)
             m.add(
@@ -157,15 +203,16 @@ def handle_callbacks(call):
                 InlineKeyboardButton("🔙 العودة", callback_data="grade_6")
             )
             safe_edit("📝 <b>اختبارات الصف السادس</b>\n\n👇 <b>اختر المطلوب:</b>", m)
-            
+
         elif grade == "7":
-            m = InlineKeyboardMarkup(row_width=1)
+            m = InlineKeyboardMarkup(row_width=2)
             m.add(
                 InlineKeyboardButton("📝 Unit 1.2.3", url="https://t.me/EmarApp/133"),
-                InlineKeyboardButton("🔙 العودة", callback_data="grade_7")
+                InlineKeyboardButton("📝 Unit 1.2.3.4", url="https://t.me/EmarApp/134"),
             )
+            m.add(InlineKeyboardButton("🔙 العودة", callback_data="grade_7"))
             safe_edit("📝 <b>اختبارات الصف السابع</b>\n\n👇 <b>اختر المطلوب:</b>", m)
-            
+
         elif grade == "8":
             m = InlineKeyboardMarkup(row_width=1)
             m.add(
@@ -173,7 +220,7 @@ def handle_callbacks(call):
                 InlineKeyboardButton("🔙 العودة", callback_data="grade_8")
             )
             safe_edit("📝 <b>اختبارات الصف الثامن</b>\n\n👇 <b>اختر المطلوب:</b>", m)
-            
+
         elif grade == "9":
             m = InlineKeyboardMarkup(row_width=1)
             m.add(
@@ -185,7 +232,7 @@ def handle_callbacks(call):
     # ===== قسم أوراق العمل =====
     elif data.startswith("worksheets_"):
         grade = data.split("_")[1]
-        
+
         if grade == "9":
             m = InlineKeyboardMarkup(row_width=1)
             m.add(
@@ -197,7 +244,18 @@ def handle_callbacks(call):
             grade_names = {"6": "السادس", "7": "السابع", "8": "الثامن"}
             m = InlineKeyboardMarkup()
             m.add(InlineKeyboardButton("🔙 العودة", callback_data=f"grade_{grade}"))
-            safe_edit(f"🚧 <b>أوراق عمل الصف {grade_names.get(grade, '')} قيد التجهيز حالياً.</b>\n\nسيتم إضافتها قريباً جداً، ترقبوا التحديثات! ✨", m)
+            safe_edit(
+                f"🚧 <b>أوراق عمل الصف {grade_names.get(grade, '')} قيد التجهيز حالياً.</b>\n\n"
+                "سيتم إضافتها قريباً جداً، ترقبوا التحديثات! ✨",
+                m
+            )
+
+    # ===== رد افتراضي =====
+    else:
+        try:
+            bot.answer_callback_query(call.id, "⚠️ زر غير معروف")
+        except Exception:
+            pass
 
 # ============================================================
 # 💬 الردود التلقائية (الرسائل النصية)
@@ -205,7 +263,7 @@ def handle_callbacks(call):
 @bot.message_handler(func=lambda message: True)
 def auto_reply(message):
     text = (message.text or "").lower()
-    
+
     try:
         bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
     except Exception:
@@ -218,7 +276,7 @@ def auto_reply(message):
             InlineKeyboardButton("📥 تطبيق (7-8-9)", url="https://t.me/EmarApp/102"),
         )
         bot.send_message(message.chat.id, "📥 <b>لتحميل التطبيق:</b>", reply_markup=m, parse_mode='HTML')
-        
+
     elif "تفعيل" in text or "فعل" in text or "اشتراك" in text:
         m = InlineKeyboardMarkup()
         m.add(InlineKeyboardButton("📞 تواصل معي للتفعيل", url=f"https://t.me/{MY_PERSONAL_USERNAME}"))
@@ -227,7 +285,7 @@ def auto_reply(message):
             "🔑 <b>التفعيل:</b>\n\n💰 1500 ليرة/صف\n💳 شام كاش\n\nاضغط على الزر أدناه للتواصل معي:",
             reply_markup=m, parse_mode='HTML'
         )
-        
+
     else:
         bot.send_message(
             message.chat.id,
@@ -257,5 +315,5 @@ threading.Thread(target=run_server, daemon=True).start()
 # 🚀 التشغيل
 # ============================================================
 if __name__ == "__main__":
-    print("✅ البوت يعمل — مع إضافة قسم الاختبارات وأوراق العمل")
-    bot.infinity_polling()
+    print("✅ البوت يعمل — مع قسم قواعد ومفردات للصف التاسع + اختبار جديد للسابع")
+    bot.infinity_polling(timeout=60, long_polling_timeout=30)
