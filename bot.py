@@ -30,7 +30,8 @@ def main_menu():
     return m
 
 def grade_menu(grade):
-    m = InlineKeyboardMarkup(row_width=1)
+    # ✅ تم تعديل row_width إلى 2 لتظهر الأزرار صفين
+    m = InlineKeyboardMarkup(row_width=2)
 
     # روابط التحميل
     if grade in ["7", "8", "9"]:
@@ -315,5 +316,5 @@ threading.Thread(target=run_server, daemon=True).start()
 # 🚀 التشغيل
 # ============================================================
 if __name__ == "__main__":
-    print("✅ البوت يعمل — مع قسم قواعد ومفردات للصف التاسع + اختبار جديد للسابع")
+    print("✅ البوت يعمل — الأزرار الآن صفين في كل الصفوف")
     bot.infinity_polling(timeout=60, long_polling_timeout=30)
