@@ -30,42 +30,42 @@ def main_menu():
     return m
 
 def grade_menu(grade):
-    # ✅ تم تعديل row_width إلى 2 لتظهر الأزرار صفين
     m = InlineKeyboardMarkup(row_width=2)
 
-    # روابط التحميل
-    if grade in ["7", "8", "9"]:
-        app_url = "https://t.me/EmarApp/102"
-    elif grade == "6":
-        app_url = "https://t.me/EmarApp/79"
-    else:
-        app_url = "https://t.me/EmarApp"
-
-    m.add(InlineKeyboardButton("📥 تحميل التطبيق", url=app_url))
-
-    # أزرار خاصة بكل صف
+    # 1️⃣ روابط التحميل ومواضيع الكتابة (في نفس الصف)
+    app_url = "https://t.me/EmarApp/102" if grade in ["7", "8", "9"] else "https://t.me/EmarApp/79"
+    btn_download = InlineKeyboardButton("📥 تحميل التطبيق", url=app_url)
+    
     if grade == "7":
-        m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/123"))
+        btn_writing = InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/123")
+        m.add(btn_download, btn_writing)
     elif grade == "8":
-        m.add(InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/124"))
+        btn_writing = InlineKeyboardButton("📚 مواضيع الكتابة", url="https://t.me/EmarApp/124")
+        m.add(btn_download, btn_writing)
     elif grade == "9":
-        m.add(InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9"))
+        btn_listen = InlineKeyboardButton("🎧 ملفات الاستماع", callback_data="listen_9")
+        m.add(btn_download, btn_listen)
+    else:
+        m.add(btn_download) # للصف السادس يظهر وحده
 
-    # ✅ زر اختبارات لكل الصفوف
-    m.add(InlineKeyboardButton("📝 اختبارات", callback_data=f"tests_{grade}"))
+    # 2️⃣ الاختبارات وأوراق العمل (في نفس الصف)
+    m.add(
+        InlineKeyboardButton("📝 اختبارات", callback_data=f"tests_{grade}"),
+        InlineKeyboardButton("📄 أوراق عمل", callback_data=f"worksheets_{grade}")
+    )
 
-    # ✅ زر أوراق عمل لكل الصفوف
-    m.add(InlineKeyboardButton("📄 أوراق عمل", callback_data=f"worksheets_{grade}"))
-
-    # ✅ زر قواعد ومفردات للصف التاسع فقط
+    # 3️⃣ قواعد ومفردات (للتاسع) والتفعيل (في نفس الصف)
+    btn_activate = InlineKeyboardButton("🔑 التفعيل والاشتراك", callback_data="activate_info")
+    
     if grade == "9":
-        m.add(InlineKeyboardButton("📐 قواعد ومفردات", callback_data="grammar_9"))
+        btn_grammar = InlineKeyboardButton("📐 قواعد ومفردات", callback_data="grammar_9")
+        m.add(btn_grammar, btn_activate)
+    else:
+        m.add(btn_activate) # لبقية الصفوف يظهر التفعيل وحده أو مع زر آخر
 
-    # زر التفعيل
-    m.add(InlineKeyboardButton("🔑 التفعيل والاشتراك", callback_data="activate_info"))
-
-    # زر العودة
+    # 4️⃣ زر العودة (في صف منفصل بالأسفل)
     m.add(InlineKeyboardButton("🔙 العودة للقائمة", callback_data="main_menu"))
+    
     return m
 
 # ============================================================
@@ -157,21 +157,17 @@ def handle_callbacks(call):
     # ===== قسم قواعد ومفردات - الصف التاسع =====
     elif data == "grammar_9":
         m = InlineKeyboardMarkup(row_width=2)
-        # الوحدات 1-4 بروابط جاهزة
         m.add(
             InlineKeyboardButton("Unit 1", url="https://t.me/EmarApp/135"),
             InlineKeyboardButton("Unit 2", url="https://t.me/EmarApp/136?single"),
             InlineKeyboardButton("Unit 3", url="https://t.me/EmarApp/138"),
             InlineKeyboardButton("Unit 4", url="https://t.me/EmarApp/139"),
         )
-        # الوحدات 5-6 مؤقتة
         m.add(
             InlineKeyboardButton("Unit 5", callback_data="soon"),
             InlineKeyboardButton("Unit 6", callback_data="soon"),
         )
-        # مراجعة 1-6
         m.add(InlineKeyboardButton("📖 مراجعة (1-6)", callback_data="soon"))
-        # الوحدات 7-12 مؤقتة
         m.add(
             InlineKeyboardButton("Unit 7", callback_data="soon"),
             InlineKeyboardButton("Unit 8", callback_data="soon"),
@@ -180,9 +176,7 @@ def handle_callbacks(call):
             InlineKeyboardButton("Unit 11", callback_data="soon"),
             InlineKeyboardButton("Unit 12", callback_data="soon"),
         )
-        # مراجعة 7-12
         m.add(InlineKeyboardButton("📖 مراجعة (7-12)", callback_data="soon"))
-        # العودة
         m.add(InlineKeyboardButton("🔙 العودة", callback_data="grade_9"))
         safe_edit("📐 <b>قواعد ومفردات - الصف التاسع</b>\n\n👇 <b>اختر الوحدة:</b>", m)
 
@@ -316,5 +310,5 @@ threading.Thread(target=run_server, daemon=True).start()
 # 🚀 التشغيل
 # ============================================================
 if __name__ == "__main__":
-    print("✅ البوت يعمل — الأزرار الآن صفين في كل الصفوف")
+    print("✅ البوت يعمل — تم إصلاح الأزرار لتكون صفين بجانب بعضها")
     bot.infinity_polling(timeout=60, long_polling_timeout=30)
